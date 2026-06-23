@@ -431,19 +431,30 @@ function EpisodePanel({
               <button
                 key={ep.episode_number}
                 ref={active ? activeRef : undefined}
-                title={ep.name}
                 onClick={() => onSelectEp(ep.episode_number)}
                 style={{
-                  width: 44, padding: '8px 4px', borderRadius: 6,
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '8px 12px', borderRadius: 6,
                   border: `1px solid ${active ? C.text : C.border}`,
                   background: active ? C.text : 'transparent',
                   color: active ? C.bg : C.textSub,
-                  fontSize: 12, fontWeight: active ? 700 : 500,
                   cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0,
+                  textAlign: 'left',
                 }}
                 onMouseEnter={e => { if (!active) { e.currentTarget.style.borderColor = C.borderHov; e.currentTarget.style.color = C.text; } }}
                 onMouseLeave={e => { if (!active) { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textSub; } }}
-              >{ep.episode_number}</button>
+              >
+                <span style={{ fontSize: 11, fontWeight: 700, opacity: active ? 0.6 : 0.5, flexShrink: 0, minWidth: 20 }}>
+                  {ep.episode_number}
+                </span>
+                {ep.name && (
+                  <span style={{
+                    fontSize: 12, fontWeight: active ? 700 : 500,
+                    overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+                    maxWidth: 160,
+                  }}>{ep.name}</span>
+                )}
+              </button>
             );
           })}
         </div>
@@ -568,7 +579,7 @@ export default function PlayerPage() {
   const [episodes,    setEpisodes]   = useState<TMDBEpisode[]>([]);
   const [curSeason,   setCurSeason]  = useState(resumeSeason);
   const [curEp,       setCurEp]      = useState(resumeEpisode);
-  const [epPanelOpen,    setEpPanelOpen]   = useState(false);
+  const [epPanelOpen,    setEpPanelOpen]   = useState(type !== 'movie');
   const [loadingEps,     setLoadingEps]    = useState(false);
   const [iframeKey,      setIframeKey]     = useState(0);
   const [iframeFullscreen, setIframeFullscreen] = useState(false);
@@ -753,7 +764,7 @@ export default function PlayerPage() {
   };
 
   const handleSelectEp = (ep: number) => {
-    setCurEp(ep); setIframeKey(k => k + 1); setEpPanelOpen(false);
+    setCurEp(ep); setIframeKey(k => k + 1);
   };
 
   const currentEpisodeObj = episodes.find(e => e.episode_number === curEp);
@@ -893,20 +904,18 @@ export default function PlayerPage() {
             marginTop: 10, display: 'flex', alignItems: 'center',
             justifyContent: 'space-between', gap: 10,
           }}>
-            {/* Left: title always, ep counter for series/anime only */}
+            {/* Left: show name + ep counter (series only) */}
             <div style={{ minWidth: 0, flex: 1 }}>
-              {item && (
+              {mediaType !== 'movie' && item && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '55vw' }}>
                     {item.title}
                   </span>
-                  {mediaType !== 'movie' && (
-                    <span style={{ fontSize: 12, color: C.textSub, flexShrink: 0 }}>
-                      {isAnime
-                        ? `Ep ${curEp}${episodes.length > 0 ? `/${episodes.length}` : ''}`
-                        : `S${curSeason} · E${curEp}${episodes.length > 0 ? `/${episodes.length}` : ''}`}
-                    </span>
-                  )}
+                  <span style={{ fontSize: 12, color: C.textSub, flexShrink: 0 }}>
+                    {isAnime
+                      ? `Ep ${curEp}${episodes.length > 0 ? `/${episodes.length}` : ''}`
+                      : `S${curSeason} · E${curEp}${episodes.length > 0 ? `/${episodes.length}` : ''}`}
+                  </span>
                 </div>
               )}
             </div>
