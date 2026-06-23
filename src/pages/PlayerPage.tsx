@@ -7,7 +7,7 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ChevronDown, ChevronLeft, ChevronRight,
   Film, Tv, Star, Calendar, RefreshCw,
-  SkipForward, Languages, ChevronUp,
+  SkipForward, Languages, ChevronUp, Download,
 } from 'lucide-react';
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
@@ -299,6 +299,109 @@ function AudioDropdown({ variants, active, onChange }: {
               >
                 {v.label}
               </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── DOWNLOAD SERVERS ─────────────────────────────────────────────────────────
+// Builds a direct download-page URL per server, per content type.
+// tv links take {tmdbId}/{season}/{episode}; movie links take just {tmdbId}.
+interface DownloadServer {
+  id:    string;
+  label: string;
+  build: (ct: 'movie' | 'tv', tmdbId: number, season: number, episode: number) => string;
+}
+
+const DOWNLOAD_SERVERS: DownloadServer[] = [
+  {
+    id:    'vidvault',
+    label: 'VidVault',
+    build: (ct, tmdbId, season, episode) =>
+      ct === 'movie'
+        ? `https://vidvault.ru/movie/${tmdbId}`
+        : `https://vidvault.ru/tv/${tmdbId}/${season}/${episode}`,
+  },
+  {
+    id:    '02moviedownloader',
+    label: '02MovieDownloader',
+    build: (ct, tmdbId, season, episode) =>
+      ct === 'movie'
+        ? `https://02moviedownloader.site/api/download/movie/${tmdbId}`
+        : `https://02moviedownloader.site/api/download/tv/${tmdbId}/${season}/${episode}`,
+  },
+];
+
+function DownloadDropdown({
+  contentType, tmdbId, season, episode,
+}: {
+  contentType: 'movie' | 'tv';
+  tmdbId:      number;
+  season:      number;
+  episode:     number;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        title="Download"
+        style={{
+          flexShrink: 0, width: 36, height: 36, borderRadius: 8,
+          border: `1px solid ${open ? C.borderHov : C.border}`, background: C.elevated,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', color: C.text, transition: 'all 0.15s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = C.borderHov; }}
+        onMouseLeave={e => { if (!open) e.currentTarget.style.borderColor = C.border; }}
+      >
+        <Download size={16} />
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'absolute', bottom: 'calc(100% + 6px)', right: 0, zIndex: 60,
+          background: C.surface, border: `1px solid ${C.border}`,
+          borderRadius: 10, padding: 6, minWidth: 200,
+          boxShadow: '0 12px 36px rgba(0,0,0,0.6)',
+        }}>
+          <p style={{ margin: '2px 8px 6px', fontSize: 10.5, fontWeight: 700, color: C.textSub, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Download servers
+          </p>
+          {DOWNLOAD_SERVERS.map(s => {
+            const url = s.build(contentType, tmdbId, season, episode);
+            return (
+              <a
+                key={s.id}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setOpen(false)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  width: '100%', padding: '8px 10px', borderRadius: 6,
+                  textAlign: 'left', textDecoration: 'none',
+                  fontSize: 12.5, fontWeight: 600,
+                  background: 'transparent', color: C.text,
+                  transition: 'background 0.1s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = C.elevated; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+              >
+                <Download size={13} style={{ opacity: 0.6, flexShrink: 0 }} />
+                {s.label}
+              </a>
             );
           })}
         </div>
@@ -919,21 +1022,29 @@ export default function PlayerPage() {
                 </div>
               )}
             </div>
-            {/* Right: fullscreen button */}
-            <button
-              onClick={handleIframeFullscreen}
-              title="Fullscreen"
-              style={{
-                flexShrink: 0, width: 36, height: 36, borderRadius: 8,
-                border: `1px solid ${C.border}`, background: C.elevated,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: C.text, transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = C.borderHov; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; }}
-            ><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M1 5V2a1 1 0 0 1 1-1h3M15 11v3a1 1 0 0 1-1 1h-3M11 1h3a1 1 0 0 1 1 1v3M5 15H2a1 1 0 0 1-1-1v-3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-            </svg></button>
+            {/* Right: download + fullscreen buttons */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <DownloadDropdown
+                contentType={mediaType === 'movie' ? 'movie' : 'tv'}
+                tmdbId={tmdbIdNum}
+                season={curSeason}
+                episode={curEp}
+              />
+              <button
+                onClick={handleIframeFullscreen}
+                title="Fullscreen"
+                style={{
+                  flexShrink: 0, width: 36, height: 36, borderRadius: 8,
+                  border: `1px solid ${C.border}`, background: C.elevated,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', color: C.text, transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = C.borderHov; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; }}
+              ><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1 5V2a1 1 0 0 1 1-1h3M15 11v3a1 1 0 0 1-1 1h-3M11 1h3a1 1 0 0 1 1 1v3M5 15H2a1 1 0 0 1-1-1v-3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+              </svg></button>
+            </div>
           </div>
         )}
 
