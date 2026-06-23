@@ -96,28 +96,32 @@ interface ProviderConfig {
 
 const PROVIDERS: ProviderConfig[] = [
   {
-    id: 'netflix',  tmdbId: 8,    name: 'Netflix',
+    id: 'netflix',      tmdbId: 8,    name: 'Netflix',
     iconUrl: 'https://cdn.simpleicons.org/netflix/ffffff',
   },
   {
-    id: 'prime',    tmdbId: 9,    name: 'Prime Video',
+    id: 'prime',        tmdbId: 9,    name: 'Prime Video',
     iconUrl: 'https://cdn.simpleicons.org/primevideo/ffffff',
   },
   {
-    id: 'appletv',  tmdbId: 350,  name: 'Apple TV+',
-    iconUrl: null, // will use Apple icon from lucide
+    id: 'appletv',      tmdbId: 350,  name: 'Apple TV+',
+    iconUrl: null, // uses lucide Apple icon
   },
   {
-    id: 'hulu',     tmdbId: 15,   name: 'Hulu',
+    id: 'hulu',         tmdbId: 15,   name: 'Hulu',
     iconUrl: 'https://cdn.simpleicons.org/hulu/ffffff',
   },
   {
-    id: 'disney',   tmdbId: 337,  name: 'Disney+',
+    id: 'disney',       tmdbId: 337,  name: 'Disney+',
     iconUrl: 'https://cdn.simpleicons.org/disneyplus/ffffff',
   },
   {
-    id: 'max',      tmdbId: 1899, name: 'Max',
+    id: 'max',          tmdbId: 1899, name: 'Max',
     iconUrl: null, fallbackText: 'max',
+  },
+  {
+    id: 'crunchyroll',  tmdbId: 283,  name: 'Crunchyroll',
+    iconUrl: 'https://cdn.simpleicons.org/crunchyroll/ffffff',
   },
 ];
 
@@ -127,21 +131,24 @@ const ProviderLogo = memo(function ProviderLogo({
 }: { provider: ProviderConfig; size?: number }) {
   const [err, setErr] = useState(false);
 
-  // Apple TV+ — lucide Apple icon
+  // Apple TV+ — lucide Apple icon + TV+ label
   if (provider.id === 'appletv') {
+    const iconSize = Math.max(12, Math.round(size * 0.55));
+    const labelSize = Math.max(6, Math.round(size * 0.22));
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-        <Apple size={16} fill="white" color="white" />
-        <span style={{ fontSize: 7, fontWeight: 700, color: 'rgba(255,255,255,0.9)', letterSpacing: '0.04em' }}>TV+</span>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+        <Apple size={iconSize} fill="white" color="white" />
+        <span style={{ fontSize: labelSize, fontWeight: 700, color: 'rgba(255,255,255,0.9)', letterSpacing: '0.04em' }}>TV+</span>
       </div>
     );
   }
 
-  // Max — typed wordmark (simple icons slug may vary)
+  // Max — typed wordmark
   if (provider.id === 'max') {
+    const fontSize = Math.max(13, Math.round(size * 0.6));
     return (
       <span style={{
-        fontSize: 17, fontWeight: 900, color: 'white',
+        fontSize, fontWeight: 900, color: 'white',
         letterSpacing: '-0.04em', fontFamily: "'Arial Black', sans-serif",
       }}>max</span>
     );
@@ -654,6 +661,131 @@ function ProviderShowcase({
   );
 }
 
+// ─── OTT LOGO MARQUEE STRIP ───────────────────────────────────────────────────
+// Animated left-to-right infinite scrolling strip of real OTT logos
+// Placed between ProviderShowcase rails and the Disclaimer section
+
+const MARQUEE_LOGOS: { name: string; url: string }[] = [
+  { name: 'Netflix',      url: 'https://cdn.simpleicons.org/netflix/ffffff' },
+  { name: 'Prime Video',  url: 'https://cdn.simpleicons.org/primevideo/ffffff' },
+  { name: 'Disney+',      url: 'https://cdn.simpleicons.org/disneyplus/ffffff' },
+  { name: 'Hulu',         url: 'https://cdn.simpleicons.org/hulu/ffffff' },
+  { name: 'Crunchyroll',  url: 'https://cdn.simpleicons.org/crunchyroll/f47521' },
+  { name: 'Paramount+',   url: 'https://cdn.simpleicons.org/paramountplus/ffffff' },
+  { name: 'Peacock',      url: 'https://cdn.simpleicons.org/peacock/ffffff' },
+  { name: 'HBO Max',      url: 'https://cdn.simpleicons.org/hbo/ffffff' },
+  { name: 'Zee5',         url: 'https://upload.wikimedia.org/wikipedia/commons/7/7f/ZEE5_Logo.svg' },
+  { name: 'JioCinema',    url: 'https://upload.wikimedia.org/wikipedia/en/7/73/JioCinema_logo.svg' },
+  { name: 'SonyLiv',      url: 'https://upload.wikimedia.org/wikipedia/en/thumb/d/d4/SonyLIV.svg/800px-SonyLIV.svg.png' },
+  { name: 'Apple TV+',    url: 'https://cdn.simpleicons.org/appletv/ffffff' },
+];
+
+function OTTMarquee() {
+  return (
+    <section style={{
+      paddingBlock: '36px 30px',
+      borderTop: `1px solid ${C.border}`,
+      borderBottom: `1px solid ${C.border}`,
+      marginBottom: 40,
+      overflow: 'hidden',
+      background: 'rgba(15,19,24,0.2)',
+    }}>
+      {/* Tagline */}
+      <p style={{
+        margin: '0 0 24px',
+        textAlign: 'center',
+        fontSize: 11,
+        fontWeight: 700,
+        color: C.textSub,
+        letterSpacing: '0.12em',
+        textTransform: 'uppercase',
+      }}>
+        All your streaming OTTs at one place
+      </p>
+
+      {/* Marquee wrapper */}
+      <div style={{ position: 'relative', overflow: 'hidden', width: '100%' }}>
+        {/* Left fade */}
+        <div style={{
+          position: 'absolute', left: 0, top: 0, bottom: 0, width: 72, zIndex: 2,
+          background: `linear-gradient(to right, ${C.bg} 0%, transparent 100%)`,
+          pointerEvents: 'none',
+        }} />
+        {/* Right fade */}
+        <div style={{
+          position: 'absolute', right: 0, top: 0, bottom: 0, width: 72, zIndex: 2,
+          background: `linear-gradient(to left, ${C.bg} 0%, transparent 100%)`,
+          pointerEvents: 'none',
+        }} />
+
+        {/* Scrolling track — doubled for seamless loop */}
+        <div style={{
+          display: 'flex',
+          width: 'max-content',
+          animation: 'ott-scroll 34s linear infinite',
+        }}>
+          {[...MARQUEE_LOGOS, ...MARQUEE_LOGOS].map((logo, i) => (
+            <OTTLogoChip key={`${logo.name}-${i}`} logo={logo} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const OTTLogoChip = memo(function OTTLogoChip({ logo }: { logo: { name: string; url: string } }) {
+  const [err, setErr] = useState(false);
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      title={logo.name}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        flexShrink: 0,
+        marginInline: 8,
+        width: 110,
+        height: 58,
+        borderRadius: 14,
+        background: hov ? 'rgba(248,249,251,0.07)' : 'rgba(15,19,24,0.65)',
+        border: `1px solid ${hov ? 'rgba(248,249,251,0.18)' : C.border}`,
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 14,
+        boxSizing: 'border-box',
+        transition: 'border-color 0.2s, background 0.2s, box-shadow 0.2s',
+        boxShadow: hov ? '0 0 18px rgba(255,255,255,0.04)' : 'none',
+        cursor: 'default',
+      }}
+    >
+      {err ? (
+        <span style={{
+          fontSize: 9, fontWeight: 800, color: 'rgba(248,249,251,0.6)',
+          textTransform: 'uppercase', letterSpacing: '0.05em',
+          textAlign: 'center', lineHeight: 1.2,
+        }}>{logo.name}</span>
+      ) : (
+        <img
+          src={logo.url}
+          alt={logo.name}
+          loading="lazy"
+          draggable={false}
+          onError={() => setErr(true)}
+          style={{
+            width: '100%', height: '100%',
+            objectFit: 'contain', display: 'block',
+            userSelect: 'none',
+            filter: 'brightness(1) contrast(1)',
+          }}
+        />
+      )}
+    </div>
+  );
+});
+
 // ─── OTT PROVIDER SELECTOR ────────────────────────────────────────────────────
 // B&W monochrome — all pills same dark glass style, logo in white only
 function OttSelector({
@@ -711,7 +843,7 @@ function OttSelector({
         )}
       </div>
 
-      {/* Provider pill strip — all B&W, no brand colors */}
+      {/* Provider pill strip — real logos, no text labels */}
       <div style={{ display: 'flex', gap: 10, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4 }}>
         {PROVIDERS.map(p => {
           const isSel = selected === p.id;
@@ -722,26 +854,28 @@ function OttSelector({
               title={p.name}
               style={{
                 flexShrink: 0,
-                width: 90, height: 58,
+                width: 88, height: 56,
                 borderRadius: 16,
-                display: 'flex', flexDirection: 'column',
+                display: 'flex',
                 alignItems: 'center', justifyContent: 'center',
-                gap: 5,
-                cursor: 'pointer', fontFamily: 'inherit',
-                // bg matches page bg — differentiated only by stroke + shadow
-                background: C.bg,
+                cursor: 'pointer', fontFamily: 'inherit', padding: 12,
+                background: isSel
+                  ? 'rgba(248,249,251,0.09)'
+                  : 'rgba(15,19,24,0.6)',
                 border: isSel
-                  ? '1.5px solid rgba(255,255,255,0.28)'
+                  ? '1.5px solid rgba(255,255,255,0.3)'
                   : '1px solid rgba(255,255,255,0.07)',
                 boxShadow: isSel
-                  ? '0 0 18px rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.1)'
-                  : '0 1px 6px rgba(0,0,0,0.35)',
-                transform: isSel ? 'scale(1.06)' : 'scale(1)',
+                  ? '0 0 20px rgba(255,255,255,0.07), inset 0 1px 0 rgba(255,255,255,0.12)'
+                  : '0 2px 8px rgba(0,0,0,0.4)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                transform: isSel ? 'scale(1.07)' : 'scale(1)',
                 transition: 'all 0.22s cubic-bezier(0.2,0.8,0.2,1)',
-                opacity: isSel ? 1 : 0.55,
+                opacity: isSel ? 1 : 0.6,
               }}
             >
-              <ProviderLogo provider={p} size={22} />
+              <ProviderLogo provider={p} size={32} />
             </button>
           );
         })}
@@ -1494,7 +1628,10 @@ export default function CineverseHome() {
           </>
         )}
 
-        {/* ── 9. Disclaimer Section ── */}
+        {/* ── 9. OTT Marquee Strip ── */}
+        <OTTMarquee />
+
+        {/* ── 10. Disclaimer Section ── */}
         <DisclaimerSection />
       </div>
 
@@ -1547,6 +1684,13 @@ export default function CineverseHome() {
           background: linear-gradient(90deg, #0F1318 25%, #181D24 50%, #0F1318 75%);
           background-size: 200% 100%;
           animation: cv-shimmer 1.6s ease-in-out infinite;
+        }
+        @keyframes ott-scroll {
+          from { transform: translateX(0); }
+          to   { transform: translateX(-50%); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          [style*="ott-scroll"] { animation: none !important; }
         }
       `}</style>
     </div>
