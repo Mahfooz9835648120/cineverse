@@ -1119,13 +1119,11 @@ function FloatingBottomDock({ onSearchOpen }: { onSearchOpen: () => void }) {
 
   return (
     <div style={{
-      position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)',
+      position: 'fixed', bottom: 28, left: '50%',
       zIndex: 60,
-      // Animate in/out
       opacity: visible ? 1 : 0,
       pointerEvents: visible ? 'auto' : 'none',
       transition: 'opacity 0.3s cubic-bezier(0.4,0,0.2,1), transform 0.3s cubic-bezier(0.4,0,0.2,1)',
-      // Slightly slide up when appearing
       transform: `translateX(-50%) translateY(${visible ? 0 : 12}px)`,
     }}>
       <div style={{
