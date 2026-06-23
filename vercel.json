@@ -1,6 +1,7 @@
 {
   "rewrites": [
-    { "source": "/api/tmdb/:path*", "destination": "/api/tmdb" }
+    { "source": "/api/tmdb/:path*", "destination": "/api/tmdb" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
@@ -8,7 +9,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://image.tmdb.org; connect-src 'self' https://api.themoviedb.org https://api.anilist.co; media-src 'self' blob: https:; frame-src 'self' https://www.youtube.com;"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://image.tmdb.org; connect-src 'self' https://api.themoviedb.org https://api.anilist.co; media-src 'self' blob: https:; frame-src 'self' https://www.youtube.com https://player.videasy.net https://player.vidzee.wtf https://vidup.to https://vidcore.net https://vidsrcme.ru https://vidsrc.xyz https://1embed.cc https://cinesrc.st https://primesrc.me https://cinemaos.tech https://111movies.net https://www.nontongo.win https://nontongo.win https://vidnest.fun https://megaplay.buzz;"
         }
       ]
     }
