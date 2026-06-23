@@ -6,12 +6,13 @@
 // ✦ Netflix + Prime Top 10 as MediaCards (landscape, between rails)
 // ✦ Disclaimer section + floating bottom dock
 
-import { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Play, Search, Film, Tv, TrendingUp, Star,
   ChevronLeft, ChevronRight, Clock, Trash2,
   Home, Compass, AlertCircle, Shield,
+  Flame, Laugh, Ghost, Rocket, Heart, Drama,
 } from 'lucide-react';
 import { tmdb, getTMDBImage } from '@/lib/tmdb';
 
@@ -268,6 +269,29 @@ async function tmdbDiscover(type: 'movie' | 'tv', providerId: number): Promise<a
   }
 
   return null; // Fallback to hash filtering
+}
+
+// Fetches a clean top-10 list for a provider showcase — interleaves movies
+// and shows from real TMDB discover results so Netflix/Prime rows always
+// get a full 10 items instead of a sparse hash-filtered subset.
+async function fetchProviderTop10(providerTmdbId: number): Promise<CineItem[]> {
+  try {
+    const [m, t] = await Promise.all([
+      tmdbDiscover('movie', providerTmdbId),
+      tmdbDiscover('tv', providerTmdbId),
+    ]);
+    const movies = m ? normPage(m, 'movie', 10) : [];
+    const shows  = t ? normPage(t, 'tv', 10) : [];
+    const combined: CineItem[] = [];
+    let mi = 0, si = 0;
+    while (combined.length < 10 && (mi < movies.length || si < shows.length)) {
+      if (mi < movies.length) combined.push(movies[mi++]);
+      if (combined.length < 10 && si < shows.length) combined.push(shows[si++]);
+    }
+    return combined.slice(0, 10);
+  } catch {
+    return [];
+  }
 }
 
 // ─── SKELETONS ────────────────────────────────────────────────────────────────
@@ -554,11 +578,9 @@ function ProviderShowcase({
   onItemClick: (item: CineItem) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  // Filter items to this provider using hash, take top 10
-  const providerIdx = PROVIDERS.indexOf(provider) % 6;
-  const filtered = items
-    .filter(i => i.tmdb_id % 6 === providerIdx && (i.backdrop || i.poster))
-    .slice(0, 10);
+  // Items are now real, provider-specific TMDB discover results (already
+  // fetched and capped at 10 upstream) — no more hash-filtering needed.
+  const filtered = items.filter(i => i.backdrop || i.poster).slice(0, 10);
 
   const slide = (dir: 'l' | 'r') => {
     scrollRef.current?.scrollBy({ left: dir === 'l' ? -290 : 290, behavior: 'smooth' });
@@ -1259,27 +1281,9 @@ function ContinueWatchingRail({ onPlay, onRemove }: {
 // ─── DISCLAIMER SECTION ───────────────────────────────────────────────────────
 function DisclaimerSection() {
   const badges = [
-    {
-      icon: <Shield size={13} />,
-      label: 'Third-party Content',
-      color: '#6366f1',       // indigo
-      bg: 'rgba(99,102,241,0.12)',
-      border: 'rgba(99,102,241,0.3)',
-    },
-    {
-      icon: <Film size={13} />,
-      label: 'No File Hosting',
-      color: '#10b981',       // emerald
-      bg: 'rgba(16,185,129,0.12)',
-      border: 'rgba(16,185,129,0.3)',
-    },
-    {
-      icon: <AlertCircle size={13} />,
-      label: 'DMCA Compliant',
-      color: '#f59e0b',       // amber
-      bg: 'rgba(245,158,11,0.12)',
-      border: 'rgba(245,158,11,0.3)',
-    },
+    { icon: <Shield size={13} />,      label: 'Third-party Content' },
+    { icon: <Film size={13} />,        label: 'No File Hosting' },
+    { icon: <AlertCircle size={13} />, label: 'DMCA Compliant' },
   ];
 
   return (
@@ -1290,14 +1294,14 @@ function DisclaimerSection() {
       padding: '0',
       position: 'relative',
       overflow: 'hidden',
-      background: 'linear-gradient(135deg, #0e1117 0%, #111827 100%)',
-      border: '1px solid rgba(255,255,255,0.07)',
+      background: C.surface,
+      border: `1px solid ${C.border}`,
       boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
     }}>
-      {/* Colour accent bar at top */}
+      {/* Subtle neutral accent bar at top — no rainbow gradient */}
       <div style={{
-        height: 3,
-        background: 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 35%, #ec4899 65%, #f59e0b 100%)',
+        height: 2,
+        background: 'rgba(248,249,251,0.14)',
         width: '100%',
       }} />
 
@@ -1306,17 +1310,17 @@ function DisclaimerSection() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
           <div style={{
             width: 36, height: 36, borderRadius: 10,
-            background: 'rgba(99,102,241,0.15)',
-            border: '1px solid rgba(99,102,241,0.3)',
+            background: C.elevated,
+            border: `1px solid ${C.border}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           }}>
-            <AlertCircle size={17} color="#818cf8" />
+            <AlertCircle size={17} color={C.text} />
           </div>
           <div>
             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: C.text, letterSpacing: '-0.01em' }}>
               Important Disclaimer
             </h3>
-            <p style={{ margin: 0, fontSize: 11, color: '#6366f1', marginTop: 2, fontWeight: 500 }}>
+            <p style={{ margin: 0, fontSize: 11, color: C.textSub, marginTop: 2, fontWeight: 500 }}>
               Content Aggregator · Not a Host
             </p>
           </div>
@@ -1332,17 +1336,17 @@ function DisclaimerSection() {
           concerns or DMCA takedown requests, contact the respective content providers directly.
         </p>
 
-        {/* Coloured badges */}
+        {/* Monochrome badges — consistent glass style, no rainbow colours */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {badges.map(b => (
             <div key={b.label} style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '6px 13px', borderRadius: 99,
-              background: b.bg,
-              border: `1px solid ${b.border}`,
-              fontSize: 11, fontWeight: 600, color: b.color,
+              background: C.elevated,
+              border: `1px solid ${C.border}`,
+              fontSize: 11, fontWeight: 600, color: C.textSub,
             }}>
-              <span style={{ color: b.color, display: 'flex' }}>{b.icon}</span>
+              <span style={{ color: C.textSub, display: 'flex' }}>{b.icon}</span>
               {b.label}
             </div>
           ))}
@@ -1548,11 +1552,47 @@ export default function CineverseHome() {
   const [providerShows,  setProviderShows]  = useState<CineItem[]>([]);
   const [loadingProvider, setLoadingProvider] = useState(false);
 
+  // Netflix / Prime showcase rows — real TMDB discover fetch, 10 items each
+  const [netflixItems,   setNetflixItems]   = useState<CineItem[]>([]);
+  const [primeItems,     setPrimeItems]     = useState<CineItem[]>([]);
+  const [loadingNetflix, setLoadingNetflix] = useState(true);
+  const [loadingPrime,   setLoadingPrime]   = useState(true);
+
   const [cwKey, setCwKey] = useState(0);
 
-  const animationMovies = popularMovies.filter(i => i.genres.includes('Animation') || i.genres.includes('Family')).slice(0, 20);
-  const animationShows  = popularShows.filter(i => i.genres.includes('Animation') || i.genres.includes('Kids')).slice(0, 20);
-  const allMovies       = [...trendingMovies, ...popularMovies];
+  // Deduped pools across all base movie/show fetches — used for genre rows
+  const moviePool = useMemo(() => {
+    const map = new Map<number, CineItem>();
+    [...trendingMovies, ...popularMovies, ...topRated, ...upcoming].forEach(i => map.set(i.tmdb_id, i));
+    return Array.from(map.values());
+  }, [trendingMovies, popularMovies, topRated, upcoming]);
+
+  const showPool = useMemo(() => {
+    const map = new Map<number, CineItem>();
+    [...trendingShows, ...popularShows].forEach(i => map.set(i.tmdb_id, i));
+    return Array.from(map.values());
+  }, [trendingShows, popularShows]);
+
+  const byGenre = (pool: CineItem[], genre: string, limit = 20) =>
+    pool.filter(i => i.genres.includes(genre)).slice(0, limit);
+
+  // Movie genre rows
+  const actionMovies    = byGenre(moviePool, 'Action', 20);
+  const comedyMovies    = byGenre(moviePool, 'Comedy', 20);
+  const horrorMovies    = byGenre(moviePool, 'Horror', 20);
+  const scifiMovies     = byGenre(moviePool, 'Sci-Fi', 20);
+  const thrillerMovies  = byGenre(moviePool, 'Thriller', 20);
+  const romanceMovies   = byGenre(moviePool, 'Romance', 20);
+  const dramaMovies     = byGenre(moviePool, 'Drama', 20);
+  const animationMovies = moviePool.filter(i => i.genres.includes('Animation') || i.genres.includes('Family')).slice(0, 20);
+
+  // TV genre rows
+  const actionShows     = byGenre(showPool, 'Action & Adventure', 20);
+  const comedyShows     = byGenre(showPool, 'Comedy', 20);
+  const crimeShows      = byGenre(showPool, 'Crime', 20);
+  const dramaShows      = byGenre(showPool, 'Drama', 20);
+  const animationShows  = showPool.filter(i => i.genres.includes('Animation') || i.genres.includes('Kids')).slice(0, 20);
+
   const netflixProvider = PROVIDERS.find(p => p.id === 'netflix')!;
   const primeProvider   = PROVIDERS.find(p => p.id === 'prime')!;
 
@@ -1587,6 +1627,34 @@ export default function CineverseHome() {
       setUpcoming(normPage(d, 'movie', 20)); setLoadingUpcoming(false);
     }).catch(() => setLoadingUpcoming(false));
   }, []);
+
+  // ── Netflix / Prime showcase fetch — real discover, 10 items each ──────────
+  useEffect(() => {
+    setLoadingNetflix(true);
+    fetchProviderTop10(netflixProvider.tmdbId)
+      .then(items => setNetflixItems(items))
+      .finally(() => setLoadingNetflix(false));
+
+    setLoadingPrime(true);
+    fetchProviderTop10(primeProvider.tmdbId)
+      .then(items => setPrimeItems(items))
+      .finally(() => setLoadingPrime(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Fallback for Netflix/Prime if the real discover call failed/returned empty ──
+  useEffect(() => {
+    if (loadingNetflix || netflixItems.length > 0) return;
+    if (!moviePool.length && !showPool.length) return;
+    const pool = [...filterItemsByOtt(moviePool, 'netflix', 'movie'), ...filterItemsByOtt(showPool, 'netflix', 'tv')];
+    if (pool.length) setNetflixItems(pool.slice(0, 10));
+  }, [loadingNetflix, netflixItems.length, moviePool, showPool]);
+
+  useEffect(() => {
+    if (loadingPrime || primeItems.length > 0) return;
+    if (!moviePool.length && !showPool.length) return;
+    const pool = [...filterItemsByOtt(moviePool, 'prime', 'movie'), ...filterItemsByOtt(showPool, 'prime', 'tv')];
+    if (pool.length) setPrimeItems(pool.slice(0, 10));
+  }, [loadingPrime, primeItems.length, moviePool, showPool]);
 
   // ── Provider fetch — real TMDB discover per provider ───────────────────────
   useEffect(() => {
@@ -1671,23 +1739,30 @@ export default function CineverseHome() {
         {/* ── 4. Top 10 Series Banner ── */}
         <TopTenRail title="Series" items={trendingShows} loading={loadingTrendS} onItemClick={goPlayItem} />
 
-        {/* ── 5. Netflix Most Watched — MediaCard (in between, NOT TopTenRail) ── */}
+        {/* ── 5. Netflix Most Watched — MediaCard, real top-10 discover fetch ── */}
         <ProviderShowcase
           provider={netflixProvider}
-          items={allMovies}
-          loading={loadingTrendM}
+          items={netflixItems}
+          loading={loadingNetflix}
           onItemClick={goPlayItem}
         />
 
-        {/* ── 6. Prime Video Picks — MediaCard (in between) ── */}
+        {/* ── 6. Genre rows, spaced out between the provider showcases ── */}
+        <Rail title="Action & Adventure" icon={<Flame size={14} />} items={actionMovies}   loading={loadingPopM} onItemClick={goPlayItem} />
+        <Rail title="Comedy Picks"       icon={<Laugh size={14} />} items={comedyMovies}   loading={loadingPopM} onItemClick={goPlayItem} />
+
+        {/* ── 7. Prime Video Picks — MediaCard, real top-10 discover fetch ── */}
         <ProviderShowcase
           provider={primeProvider}
-          items={[...trendingMovies, ...popularMovies]}
-          loading={loadingTrendM}
+          items={primeItems}
+          loading={loadingPrime}
           onItemClick={goPlayItem}
         />
 
-        {/* ── 7. Provider Selector + Tab ── */}
+        <Rail title="Horror Nights"      icon={<Ghost size={14} />}  items={horrorMovies}  loading={loadingPopM} onItemClick={goPlayItem} />
+        <Rail title="Sci-Fi & Fantasy"   icon={<Rocket size={14} />} items={scifiMovies}   loading={loadingPopM} onItemClick={goPlayItem} />
+
+        {/* ── 8. Provider Selector + Tab ── */}
         <OttSelector
           selected={selectedOtt}
           onSelect={id => setSelectedOtt(id)}
@@ -1695,7 +1770,7 @@ export default function CineverseHome() {
           onTabChange={tab => setCurrentOttTab(tab)}
         />
 
-        {/* ── 8. Provider Content Rails ── */}
+        {/* ── 9. Provider / Tab Content Rails ── */}
         {loadingProvider ? (
           /* Loading state when provider changes */
           <>
@@ -1733,6 +1808,15 @@ export default function CineverseHome() {
             <Rail title="Popular Movies"      icon={<Film size={14} />}       items={popularMovies}   loading={loadingPopM}     onItemClick={goPlayItem} />
             <Rail title="Top Rated"           icon={<Star size={14} />}       items={topRated}        loading={loadingTopR}     onItemClick={goPlayItem} />
             <Rail title="Coming Soon"         icon={<Film size={14} />}       items={upcoming}        loading={loadingUpcoming} onItemClick={goPlayItem} />
+            {dramaMovies.length > 0 && (
+              <Rail title="Drama"               icon={<Drama size={14} />}    items={dramaMovies}     loading={loadingPopM}     onItemClick={goPlayItem} />
+            )}
+            {thrillerMovies.length > 0 && (
+              <Rail title="Thrillers"           icon={<Tv size={14} />}       items={thrillerMovies}  loading={loadingPopM}     onItemClick={goPlayItem} />
+            )}
+            {romanceMovies.length > 0 && (
+              <Rail title="Romance"             icon={<Heart size={14} />}    items={romanceMovies}   loading={loadingPopM}     onItemClick={goPlayItem} />
+            )}
             {animationMovies.length > 0 && (
               <Rail title="Animation & Cartoons" icon={<Tv size={14} />}     items={animationMovies} loading={loadingPopM}     onItemClick={goPlayItem} />
             )}
@@ -1741,16 +1825,28 @@ export default function CineverseHome() {
           <>
             <Rail title="Trending Series"    icon={<TrendingUp size={14} />} items={trendingShows}   loading={loadingTrendS}  onItemClick={goPlayItem} />
             <Rail title="Popular Series"     icon={<Tv size={14} />}         items={popularShows}    loading={loadingPopS}    onItemClick={goPlayItem} />
+            {actionShows.length > 0 && (
+              <Rail title="Action & Adventure" icon={<Flame size={14} />}   items={actionShows}     loading={loadingPopS}    onItemClick={goPlayItem} />
+            )}
+            {comedyShows.length > 0 && (
+              <Rail title="Comedy Series"      icon={<Laugh size={14} />}   items={comedyShows}     loading={loadingPopS}    onItemClick={goPlayItem} />
+            )}
+            {crimeShows.length > 0 && (
+              <Rail title="Crime Drama"        icon={<Drama size={14} />}   items={crimeShows}      loading={loadingPopS}    onItemClick={goPlayItem} />
+            )}
+            {dramaShows.length > 0 && (
+              <Rail title="Drama Series"       icon={<Drama size={14} />}   items={dramaShows}      loading={loadingPopS}    onItemClick={goPlayItem} />
+            )}
             {animationShows.length > 0 && (
               <Rail title="Animated Series"  icon={<Tv size={14} />}         items={animationShows}  loading={loadingPopS}    onItemClick={goPlayItem} />
             )}
           </>
         )}
 
-        {/* ── 9. OTT Marquee Strip ── */}
+        {/* ── 10. OTT Marquee Strip ── */}
         <OTTMarquee />
 
-        {/* ── 10. Disclaimer Section ── */}
+        {/* ── 11. Disclaimer Section ── */}
         <DisclaimerSection />
       </div>
 
