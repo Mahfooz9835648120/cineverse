@@ -93,6 +93,7 @@ type ContentType = 'movie' | 'tv' | 'anime';
 interface ProviderMeta {
   id:             string;
   label:          string;
+  searchType:     'tmdb' | 'anilist';
   audioVariants?: AudioVariant[];
 }
 
