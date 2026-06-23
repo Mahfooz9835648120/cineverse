@@ -4,7 +4,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const apiKey = process.env.TMDB_API_KEY;
+  const apiKey = process.env.TMDB_API_KEY?.trim();
   if (!apiKey) return res.status(500).json({ error: 'API key not configured' });
 
   // Extract the TMDB path from the URL
