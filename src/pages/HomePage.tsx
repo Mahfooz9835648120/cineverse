@@ -728,22 +728,17 @@ function OttSelector({
                 alignItems: 'center', justifyContent: 'center',
                 gap: 5,
                 cursor: 'pointer', fontFamily: 'inherit',
-                // B&W — same glass style for all, NO brand colors
-                background: isSel
-                  ? 'rgba(248,249,251,0.12)'
-                  : 'rgba(15,19,24,0.5)',
+                // bg matches page bg — differentiated only by stroke + shadow
+                background: C.bg,
                 border: isSel
-                  ? '1.5px solid rgba(255,255,255,0.35)'
-                  : `1px solid ${C.border}`,
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
+                  ? '1.5px solid rgba(255,255,255,0.28)'
+                  : '1px solid rgba(255,255,255,0.07)',
                 boxShadow: isSel
-                  ? '0 0 0 1px rgba(255,255,255,0.06), 0 0 24px rgba(255,255,255,0.06), inset 0 1px 0 rgba(255,255,255,0.12)'
-                  : 'inset 0 1px 0 rgba(255,255,255,0.04)',
-                transform: isSel ? 'scale(1.05)' : 'scale(1)',
+                  ? '0 0 18px rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.1)'
+                  : '0 1px 6px rgba(0,0,0,0.35)',
+                transform: isSel ? 'scale(1.06)' : 'scale(1)',
                 transition: 'all 0.22s cubic-bezier(0.2,0.8,0.2,1)',
-                // Grayscale on unselected, full white on selected
-                opacity: isSel ? 1 : 0.65,
+                opacity: isSel ? 1 : 0.55,
               }}
             >
               <ProviderLogo provider={p} size={22} />
@@ -1104,69 +1099,54 @@ function DisclaimerSection() {
   );
 }
 
-// ─── FLOATING BOTTOM DOCK ─────────────────────────────────────────────────────
-// Appears after scrolling 200px — centered pill with navigation icons
+// ─── BOTTOM NAV BAR ───────────────────────────────────────────────────────────
+// Fixed to bottom of screen — sits below all content with safe-area inset
 function FloatingBottomDock({ onSearchOpen }: { onSearchOpen: () => void }) {
   const navigate = useNavigate();
-  const [visible, setVisible] = useState(false);
   const [active, setActive] = useState<'home' | 'search' | 'browse'>('home');
-
-  useEffect(() => {
-    const fn = () => setVisible(window.scrollY > 200);
-    window.addEventListener('scroll', fn, { passive: true });
-    return () => window.removeEventListener('scroll', fn);
-  }, []);
 
   return (
     <div style={{
-      position: 'fixed', bottom: 28, left: '50%',
+      position: 'fixed',
+      bottom: 0, left: 0, right: 0,
       zIndex: 60,
-      opacity: visible ? 1 : 0,
-      pointerEvents: visible ? 'auto' : 'none',
-      transition: 'opacity 0.3s cubic-bezier(0.4,0,0.2,1), transform 0.3s cubic-bezier(0.4,0,0.2,1)',
-      transform: `translateX(-50%) translateY(${visible ? 0 : 12}px)`,
+      paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      background: 'rgba(7,9,13,0.92)',
+      backdropFilter: 'blur(32px)',
+      WebkitBackdropFilter: 'blur(32px)',
+      borderTop: '1px solid rgba(255,255,255,0.08)',
+      boxShadow: '0 -4px 24px rgba(0,0,0,0.45)',
     }}>
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 4,
-        padding: '10px 14px',
-        borderRadius: 99,
-        background: 'rgba(15,19,24,0.82)',
-        backdropFilter: 'blur(32px)',
-        WebkitBackdropFilter: 'blur(32px)',
-        border: '1px solid rgba(255,255,255,0.13)',
-        boxShadow: '0 12px 50px rgba(0,0,0,0.65), 0 2px 0 rgba(255,255,255,0.04) inset, 0 -1px 0 rgba(0,0,0,0.3) inset',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-around',
+        height: 60, paddingInline: 8,
       }}>
         {/* Home */}
         <DockButton
-          icon={<Home size={17} />}
+          icon={<Home size={20} />}
           label="Home"
           active={active === 'home'}
           onClick={() => { setActive('home'); navigate('/'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
         />
-
-        {/* Divider */}
-        <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.08)', marginInline: 4 }} />
 
         {/* Logo wordmark center */}
         <button
           onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }}
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
-            padding: '4px 10px', borderRadius: 99,
+            padding: '6px 14px', borderRadius: 99,
             fontFamily: 'inherit',
+            WebkitTapHighlightColor: 'transparent',
           }}
         >
-          <span style={{ fontSize: 13, fontWeight: 900, color: C.text, letterSpacing: '-0.05em', lineHeight: 1 }}>
+          <span style={{ fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: '-0.05em', lineHeight: 1 }}>
             Cine<span style={{ color: C.textSub, fontWeight: 300 }}>verse</span>
           </span>
         </button>
 
-        {/* Divider */}
-        <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.08)', marginInline: 4 }} />
-
         {/* Search */}
         <DockButton
-          icon={<Search size={17} />}
+          icon={<Search size={20} />}
           label="Search"
           active={active === 'search'}
           onClick={() => { setActive('search'); onSearchOpen(); }}
@@ -1174,7 +1154,7 @@ function FloatingBottomDock({ onSearchOpen }: { onSearchOpen: () => void }) {
 
         {/* Browse */}
         <DockButton
-          icon={<Compass size={17} />}
+          icon={<Compass size={20} />}
           label="Browse"
           active={active === 'browse'}
           onClick={() => { setActive('browse'); navigate('/browse'); }}
@@ -1187,20 +1167,19 @@ function FloatingBottomDock({ onSearchOpen }: { onSearchOpen: () => void }) {
 function DockButton({
   icon, label, active, onClick,
 }: { icon: React.ReactNode; label: string; active: boolean; onClick: () => void }) {
-  const [hov, setHov] = useState(false);
   return (
     <button
       onClick={onClick}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
       title={label}
       style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-        padding: '6px 12px', borderRadius: 99,
-        background: active || hov ? 'rgba(248,249,251,0.1)' : 'transparent',
-        border: 'none', cursor: 'pointer', color: active ? C.text : C.textSub,
-        transition: 'all 0.18s ease', fontFamily: 'inherit',
-        minWidth: 48,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+        padding: '6px 16px', borderRadius: 12,
+        background: 'transparent',
+        border: 'none', cursor: 'pointer',
+        color: active ? C.text : C.textSub,
+        transition: 'color 0.18s ease', fontFamily: 'inherit',
+        minWidth: 56,
+        WebkitTapHighlightColor: 'transparent',
       }}
     >
       {icon}
@@ -1265,29 +1244,6 @@ function Nav({ onSearchOpen }: { onSearchOpen: () => void }) {
         Cine<span style={{ color: C.textSub, fontWeight: 300 }}>verse</span>
       </button>
 
-      {/* Nav links (desktop) */}
-      <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-        {['Movies', 'Series', 'Trending'].map(link => (
-          <button
-            key={link}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer', padding: '6px 10px',
-              fontSize: 12, fontWeight: 600, color: C.textSub,
-              borderRadius: 8, transition: 'color 0.15s, background 0.15s',
-              fontFamily: 'inherit',
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.color = C.text;
-              (e.currentTarget as HTMLElement).style.background = 'rgba(248,249,251,0.07)';
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.color = C.textSub;
-              (e.currentTarget as HTMLElement).style.background = 'transparent';
-            }}
-          >{link}</button>
-        ))}
-      </div>
-
       {/* Search button */}
       <button
         onClick={onSearchOpen}
@@ -1350,32 +1306,32 @@ export default function CineverseHome() {
   // ── Base data fetch (on mount) ──────────────────────────────────────────────
   useEffect(() => {
     tmdb.getTrending('movie').then(d => {
-      const items = normPage(d, 'movie', 6).filter((i: CineItem) => i.backdrop);
+      const items = normPage(d, 'movie', 8).filter((i: CineItem) => i.backdrop);
       setHeroItems(items); setLoadingHero(false);
     }).catch(() => setLoadingHero(false));
 
     tmdb.getTrending('movie').then(d => {
-      setTrendingMovies(normPage(d, 'movie', 20)); setLoadingTrendM(false);
+      setTrendingMovies(normPage(d, 'movie', 30)); setLoadingTrendM(false);
     }).catch(() => setLoadingTrendM(false));
 
     tmdb.getTrending('tv').then(d => {
-      setTrendingShows(normPage(d, 'tv', 20)); setLoadingTrendS(false);
+      setTrendingShows(normPage(d, 'tv', 30)); setLoadingTrendS(false);
     }).catch(() => setLoadingTrendS(false));
 
     tmdb.getPopular('movie').then(d => {
-      setPopularMovies(normPage(d, 'movie', 20)); setLoadingPopM(false);
+      setPopularMovies(normPage(d, 'movie', 30)); setLoadingPopM(false);
     }).catch(() => setLoadingPopM(false));
 
     tmdb.getPopular('tv').then(d => {
-      setPopularShows(normPage(d, 'tv', 20)); setLoadingPopS(false);
+      setPopularShows(normPage(d, 'tv', 30)); setLoadingPopS(false);
     }).catch(() => setLoadingPopS(false));
 
     tmdb.getTopRated('movie').then(d => {
-      setTopRated(normPage(d, 'movie', 20)); setLoadingTopR(false);
+      setTopRated(normPage(d, 'movie', 30)); setLoadingTopR(false);
     }).catch(() => setLoadingTopR(false));
 
     tmdb.getUpcoming().then(d => {
-      setUpcoming(normPage(d, 'movie', 16)); setLoadingUpcoming(false);
+      setUpcoming(normPage(d, 'movie', 20)); setLoadingUpcoming(false);
     }).catch(() => setLoadingUpcoming(false));
   }, []);
 
@@ -1451,7 +1407,7 @@ export default function CineverseHome() {
         : <Hero items={heroItems} onWatch={goPlayItem} onDetails={goDetails} />
       }
 
-      <div style={{ paddingTop: 32, paddingBottom: 80 }}>
+      <div style={{ paddingTop: 32, paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}>
 
         {/* ── 2. Continue Watching ── */}
         <ContinueWatchingRail key={cwKey} onPlay={goPlay} onRemove={() => setCwKey(k => k + 1)} />
@@ -1544,7 +1500,7 @@ export default function CineverseHome() {
 
       {/* ── Footer ── */}
       <footer style={{
-        borderTop: `1px solid ${C.border}`, padding: '32px 4vw',
+        borderTop: `1px solid ${C.border}`, padding: '32px 4vw 96px',
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, textAlign: 'center',
       }}>
         <span style={{ fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: '-0.05em' }}>
