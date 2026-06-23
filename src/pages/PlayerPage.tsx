@@ -100,10 +100,20 @@ interface ProviderMeta {
 async function fetchProviderList(ct: ContentType): Promise<ProviderMeta[]> {
   try {
     const res = await fetch(`/api/providers?contentType=${ct}`);
-    if (!res.ok) return [];
+    if (!res.ok) {
+      console.error(`[providers] list fetch failed: HTTP ${res.status} for contentType=${ct}`);
+      return [];
+    }
     const data = await res.json();
-    return data.providers || [];
-  } catch { return []; }
+    if (!data.providers || !Array.isArray(data.providers)) {
+      console.error('[providers] unexpected response shape:', data);
+      return [];
+    }
+    return data.providers;
+  } catch (err) {
+    console.error('[providers] list fetch threw:', err);
+    return [];
+  }
 }
 
 async function fetchResolvedUrl(params: {
@@ -127,10 +137,21 @@ async function fetchResolvedUrl(params: {
     });
     if (params.anilistId) qs.set('anilistId', String(params.anilistId));
     const res = await fetch(`/api/providers?${qs.toString()}`);
-    if (!res.ok) return '';
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      console.error(`[providers] resolve failed: HTTP ${res.status} for providerId=${params.providerId}`, body);
+      return '';
+    }
     const data = await res.json();
-    return data.url || '';
-  } catch { return ''; }
+    if (!data.url) {
+      console.error('[providers] resolve returned no url:', data);
+      return '';
+    }
+    return data.url;
+  } catch (err) {
+    console.error('[providers] resolve threw:', err);
+    return '';
+  }
 }
 
 // ─── TMDB API ─────────────────────────────────────────────────────────────────
@@ -691,11 +712,14 @@ export default function PlayerPage() {
   // ── Resolve embed URL from /api/providers whenever selection changes ────────
   const [resolvedUrl, setResolvedUrl] = useState('');
   const [resolvingUrl, setResolvingUrl] = useState(false);
+  const [resolveFailed, setResolveFailed] = useState(false);
+  const [resolveRetryTick, setResolveRetryTick] = useState(0);
 
   useEffect(() => {
     if (!provider || !tmdbIdNum) { setResolvedUrl(''); return; }
     let cancelled = false;
     setResolvingUrl(true);
+    setResolveFailed(false);
     fetchResolvedUrl({
       providerId: provider.id,
       contentType: effectiveType,
@@ -705,10 +729,13 @@ export default function PlayerPage() {
       episode: curEp,
       lang: activeLang,
     }).then(url => {
-      if (!cancelled) { setResolvedUrl(url); setResolvingUrl(false); }
+      if (cancelled) return;
+      setResolvingUrl(false);
+      if (url) { setResolvedUrl(url); setResolveFailed(false); }
+      else { setResolvedUrl(''); setResolveFailed(true); }
     });
     return () => { cancelled = true; };
-  }, [provider, tmdbIdNum, anilistId, effectiveType, curSeason, curEp, activeLang]);
+  }, [provider, tmdbIdNum, anilistId, effectiveType, curSeason, curEp, activeLang, resolveRetryTick]);
 
   const selectProvider = (idx: number) => {
     setProviderIdx(idx);
@@ -809,11 +836,29 @@ export default function PlayerPage() {
             border: `1px solid ${C.border}`,
           }}
         >
-          {loadingMeta || resolvingUrl || !resolvedUrl ? (
+          {loadingMeta || resolvingUrl ? (
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.surface }}>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ width: 40, height: 40, border: `2px solid ${C.border}`, borderTopColor: C.text, borderRadius: '50%', animation: 'sv-spin 0.8s linear infinite', margin: '0 auto 12px' }} />
                 <p style={{ color: C.textSub, fontSize: 13, margin: 0 }}>Loading…</p>
+              </div>
+            </div>
+          ) : resolveFailed || !resolvedUrl ? (
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.surface }}>
+              <div style={{ textAlign: 'center', maxWidth: 320, padding: 20 }}>
+                <p style={{ color: C.text, fontSize: 14, fontWeight: 600, margin: '0 0 6px' }}>This server didn't load</p>
+                <p style={{ color: C.textSub, fontSize: 12.5, margin: '0 0 16px', lineHeight: 1.6 }}>
+                  Try another server below, or retry this one.
+                </p>
+                <button
+                  onClick={() => setResolveRetryTick(t => t + 1)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '7px 16px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                    border: `1px solid ${C.border}`, background: C.elevated,
+                    color: C.text, cursor: 'pointer',
+                  }}
+                ><RefreshCw size={13} /> Retry</button>
               </div>
             </div>
           ) : (
