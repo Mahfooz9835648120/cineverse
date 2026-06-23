@@ -893,18 +893,20 @@ export default function PlayerPage() {
             marginTop: 10, display: 'flex', alignItems: 'center',
             justifyContent: 'space-between', gap: 10,
           }}>
-            {/* Left: show name + ep counter (series only) */}
+            {/* Left: title always, ep counter for series/anime only */}
             <div style={{ minWidth: 0, flex: 1 }}>
-              {mediaType !== 'movie' && item && (
+              {item && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '55vw' }}>
                     {item.title}
                   </span>
-                  <span style={{ fontSize: 12, color: C.textSub, flexShrink: 0 }}>
-                    {isAnime
-                      ? `Ep ${curEp}${episodes.length > 0 ? `/${episodes.length}` : ''}`
-                      : `S${curSeason} · E${curEp}${episodes.length > 0 ? `/${episodes.length}` : ''}`}
-                  </span>
+                  {mediaType !== 'movie' && (
+                    <span style={{ fontSize: 12, color: C.textSub, flexShrink: 0 }}>
+                      {isAnime
+                        ? `Ep ${curEp}${episodes.length > 0 ? `/${episodes.length}` : ''}`
+                        : `S${curSeason} · E${curEp}${episodes.length > 0 ? `/${episodes.length}` : ''}`}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
