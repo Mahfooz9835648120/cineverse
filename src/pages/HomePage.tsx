@@ -19,8 +19,18 @@ interface ContinueWatchingEntry {
 }
 
 function getContinueWatching(): ContinueWatchingEntry[] {
-  try { return JSON.parse(localStorage.getItem(CW_KEY) || '[]'); }
-  catch { return []; }
+  try {
+    const raw: ContinueWatchingEntry[] = JSON.parse(localStorage.getItem(CW_KEY) || '[]');
+    // Deduplicate: keep only the most-recent entry per tmdb_id, then sort newest first
+    const map = new Map<number, ContinueWatchingEntry>();
+    for (const entry of raw) {
+      const existing = map.get(entry.item.tmdb_id);
+      if (!existing || entry.updatedAt > existing.updatedAt) {
+        map.set(entry.item.tmdb_id, entry);
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.updatedAt - a.updatedAt);
+  } catch { return []; }
 }
 
 function removeContinueWatchingEntry(tmdbId: number) {
