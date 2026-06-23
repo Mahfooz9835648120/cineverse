@@ -10,7 +10,7 @@ import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Play, Search, Film, Tv, TrendingUp, Star,
-  ChevronLeft, ChevronRight, Clock, Trash2, Apple,
+  ChevronLeft, ChevronRight, Clock, Trash2,
   Home, Compass, AlertCircle, Shield,
 } from 'lucide-react';
 import { tmdb, getTMDBImage } from '@/lib/tmdb';
@@ -94,74 +94,84 @@ interface ProviderConfig {
   fallbackText?: string;
 }
 
+// Brand accent colours — used for the 3D button glow on selection
+const PROVIDER_COLORS: Record<string, string> = {
+  netflix:     '#E50914',
+  prime:       '#00A8E0',
+  appletv:     '#555555',
+  hulu:        '#1CE783',
+  disney:      '#113CCF',
+  max:         '#0031B4',
+  crunchyroll: '#F47521',
+};
+
 const PROVIDERS: ProviderConfig[] = [
   {
-    id: 'netflix',      tmdbId: 8,    name: 'Netflix',
-    iconUrl: 'https://cdn.simpleicons.org/netflix/ffffff',
+    id: 'netflix',
+    tmdbId: 8,
+    name: 'Netflix',
+    // TMDB official provider logo
+    iconUrl: 'https://image.tmdb.org/t/p/original/t2yyOv40HZeVlLjYsCsPHnWLk4W.jpg',
   },
   {
-    id: 'prime',        tmdbId: 9,    name: 'Prime Video',
-    iconUrl: 'https://cdn.simpleicons.org/primevideo/ffffff',
+    id: 'prime',
+    tmdbId: 9,
+    name: 'Prime Video',
+    iconUrl: 'https://image.tmdb.org/t/p/original/emthp39XA2YScoYL1p0sdbAH2WA.jpg',
   },
   {
-    id: 'appletv',      tmdbId: 350,  name: 'Apple TV+',
-    iconUrl: null, // uses lucide Apple icon
+    id: 'appletv',
+    tmdbId: 350,
+    name: 'Apple TV+',
+    iconUrl: 'https://image.tmdb.org/t/p/original/peURlLlr8jggOwK53fJ5wdQl05y.jpg',
   },
   {
-    id: 'hulu',         tmdbId: 15,   name: 'Hulu',
-    iconUrl: 'https://cdn.simpleicons.org/hulu/ffffff',
+    id: 'hulu',
+    tmdbId: 15,
+    name: 'Hulu',
+    iconUrl: 'https://image.tmdb.org/t/p/original/zxrVdFjIjLqkfnwyghnfywTn3Lh.jpg',
   },
   {
-    id: 'disney',       tmdbId: 337,  name: 'Disney+',
-    iconUrl: 'https://cdn.simpleicons.org/disneyplus/ffffff',
+    id: 'disney',
+    tmdbId: 337,
+    name: 'Disney+',
+    iconUrl: 'https://image.tmdb.org/t/p/original/7rwgEs15tFwyR9NPQ5vpzxTj19Q.jpg',
   },
   {
-    id: 'max',          tmdbId: 1899, name: 'Max',
-    iconUrl: null, fallbackText: 'max',
+    id: 'max',
+    tmdbId: 1899,
+    name: 'Max',
+    iconUrl: 'https://image.tmdb.org/t/p/original/Ajqyt5aNxNx9jp9MukZMVjMEzik.jpg',
   },
   {
-    id: 'crunchyroll',  tmdbId: 283,  name: 'Crunchyroll',
-    iconUrl: 'https://cdn.simpleicons.org/crunchyroll/ffffff',
+    id: 'crunchyroll',
+    tmdbId: 283,
+    name: 'Crunchyroll',
+    iconUrl: 'https://image.tmdb.org/t/p/original/8Gt1iClBlzTeQs8WQm8UrCoIxnQ.jpg',
   },
 ];
 
-// Provider logo renderer — uses CDN logos with graceful text fallback
+// Provider logo renderer — square rounded logo image from TMDB CDN
 const ProviderLogo = memo(function ProviderLogo({
-  provider, size = 28,
+  provider, size = 44,
 }: { provider: ProviderConfig; size?: number }) {
   const [err, setErr] = useState(false);
-
-  // Apple TV+ — lucide Apple icon + TV+ label
-  if (provider.id === 'appletv') {
-    const iconSize = Math.max(12, Math.round(size * 0.55));
-    const labelSize = Math.max(6, Math.round(size * 0.22));
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-        <Apple size={iconSize} fill="white" color="white" />
-        <span style={{ fontSize: labelSize, fontWeight: 700, color: 'rgba(255,255,255,0.9)', letterSpacing: '0.04em' }}>TV+</span>
-      </div>
-    );
-  }
-
-  // Max — typed wordmark
-  if (provider.id === 'max') {
-    const fontSize = Math.max(13, Math.round(size * 0.6));
-    return (
-      <span style={{
-        fontSize, fontWeight: 900, color: 'white',
-        letterSpacing: '-0.04em', fontFamily: "'Arial Black', sans-serif",
-      }}>max</span>
-    );
-  }
 
   if (provider.iconUrl && !err) {
     return (
       <img
         src={provider.iconUrl}
         alt={provider.name}
-        width={size} height={size}
+        width={size}
+        height={size}
         onError={() => setErr(true)}
-        style={{ objectFit: 'contain', filter: 'brightness(1) grayscale(0)', display: 'block' }}
+        style={{
+          objectFit: 'cover',
+          display: 'block',
+          borderRadius: Math.round(size * 0.22),
+          width: size,
+          height: size,
+        }}
       />
     );
   }
@@ -169,7 +179,7 @@ const ProviderLogo = memo(function ProviderLogo({
   // Text fallback
   return (
     <span style={{
-      fontSize: 10, fontWeight: 900, color: 'white',
+      fontSize: 9, fontWeight: 900, color: 'white',
       letterSpacing: '0.05em', textTransform: 'uppercase',
       fontFamily: "'Arial Black', sans-serif", textAlign: 'center',
       lineHeight: 1.1,
@@ -666,18 +676,18 @@ function ProviderShowcase({
 // Placed between ProviderShowcase rails and the Disclaimer section
 
 const MARQUEE_LOGOS: { name: string; url: string }[] = [
-  { name: 'Netflix',      url: 'https://cdn.simpleicons.org/netflix/ffffff' },
-  { name: 'Prime Video',  url: 'https://cdn.simpleicons.org/primevideo/ffffff' },
-  { name: 'Disney+',      url: 'https://cdn.simpleicons.org/disneyplus/ffffff' },
-  { name: 'Hulu',         url: 'https://cdn.simpleicons.org/hulu/ffffff' },
-  { name: 'Crunchyroll',  url: 'https://cdn.simpleicons.org/crunchyroll/f47521' },
-  { name: 'Paramount+',   url: 'https://cdn.simpleicons.org/paramountplus/ffffff' },
-  { name: 'Peacock',      url: 'https://cdn.simpleicons.org/peacock/ffffff' },
-  { name: 'HBO Max',      url: 'https://cdn.simpleicons.org/hbo/ffffff' },
-  { name: 'Zee5',         url: 'https://upload.wikimedia.org/wikipedia/commons/7/7f/ZEE5_Logo.svg' },
-  { name: 'JioCinema',    url: 'https://upload.wikimedia.org/wikipedia/en/7/73/JioCinema_logo.svg' },
-  { name: 'SonyLiv',      url: 'https://upload.wikimedia.org/wikipedia/en/thumb/d/d4/SonyLIV.svg/800px-SonyLIV.svg.png' },
-  { name: 'Apple TV+',    url: 'https://cdn.simpleicons.org/appletv/ffffff' },
+  { name: 'Netflix',      url: 'https://image.tmdb.org/t/p/original/t2yyOv40HZeVlLjYsCsPHnWLk4W.jpg' },
+  { name: 'Prime Video',  url: 'https://image.tmdb.org/t/p/original/emthp39XA2YScoYL1p0sdbAH2WA.jpg' },
+  { name: 'Disney+',      url: 'https://image.tmdb.org/t/p/original/7rwgEs15tFwyR9NPQ5vpzxTj19Q.jpg' },
+  { name: 'Hulu',         url: 'https://image.tmdb.org/t/p/original/zxrVdFjIjLqkfnwyghnfywTn3Lh.jpg' },
+  { name: 'Crunchyroll',  url: 'https://image.tmdb.org/t/p/original/8Gt1iClBlzTeQs8WQm8UrCoIxnQ.jpg' },
+  { name: 'Apple TV+',    url: 'https://image.tmdb.org/t/p/original/peURlLlr8jggOwK53fJ5wdQl05y.jpg' },
+  { name: 'Max',          url: 'https://image.tmdb.org/t/p/original/Ajqyt5aNxNx9jp9MukZMVjMEzik.jpg' },
+  { name: 'Paramount+',   url: 'https://image.tmdb.org/t/p/original/h5DcR0J2EESLitnhR8xLG1QymTE.jpg' },
+  { name: 'Peacock',      url: 'https://image.tmdb.org/t/p/original/xTHltMrZPAJFLQ6qyCBjAnXSmZt.jpg' },
+  { name: 'Zee5',         url: 'https://image.tmdb.org/t/p/original/czFpqdOBRSoN9mjjJDGswXFZWfC.jpg' },
+  { name: 'JioCinema',    url: 'https://image.tmdb.org/t/p/original/dtFZOUOaB0RYrExAEKREF8lqg7Q.jpg' },
+  { name: 'SonyLiv',      url: 'https://image.tmdb.org/t/p/original/mhseqKnkXqLpbDkmNbRRvtaJZPJ.jpg' },
 ];
 
 function OTTMarquee() {
@@ -743,51 +753,65 @@ const OTTLogoChip = memo(function OTTLogoChip({ logo }: { logo: { name: string; 
       onMouseLeave={() => setHov(false)}
       style={{
         flexShrink: 0,
-        marginInline: 8,
-        width: 110,
-        height: 58,
-        borderRadius: 14,
-        background: hov ? 'rgba(248,249,251,0.07)' : 'rgba(15,19,24,0.65)',
-        border: `1px solid ${hov ? 'rgba(248,249,251,0.18)' : C.border}`,
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
+        marginInline: 6,
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
-        padding: 14,
-        boxSizing: 'border-box',
-        transition: 'border-color 0.2s, background 0.2s, box-shadow 0.2s',
-        boxShadow: hov ? '0 0 18px rgba(255,255,255,0.04)' : 'none',
+        gap: 6,
         cursor: 'default',
       }}
     >
-      {err ? (
-        <span style={{
-          fontSize: 9, fontWeight: 800, color: 'rgba(248,249,251,0.6)',
-          textTransform: 'uppercase', letterSpacing: '0.05em',
-          textAlign: 'center', lineHeight: 1.2,
-        }}>{logo.name}</span>
-      ) : (
-        <img
-          src={logo.url}
-          alt={logo.name}
-          loading="lazy"
-          draggable={false}
-          onError={() => setErr(true)}
-          style={{
-            width: '100%', height: '100%',
-            objectFit: 'contain', display: 'block',
-            userSelect: 'none',
-            filter: 'brightness(1) contrast(1)',
-          }}
-        />
-      )}
+      {/* Square tile */}
+      <div style={{
+        width: 52,
+        height: 52,
+        borderRadius: 14,
+        overflow: 'hidden',
+        background: '#111418',
+        boxShadow: hov
+          ? '0 0 0 2px rgba(255,255,255,0.25), 0 8px 20px rgba(0,0,0,0.5)'
+          : '0 3px 0 #090c12, 0 5px 14px rgba(0,0,0,0.55)',
+        transform: hov ? 'translateY(-2px)' : 'translateY(0)',
+        transition: 'box-shadow 0.18s ease, transform 0.18s ease',
+        position: 'relative',
+      }}>
+        {err ? (
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{
+              fontSize: 7, fontWeight: 800, color: 'rgba(248,249,251,0.6)',
+              textTransform: 'uppercase', letterSpacing: '0.04em',
+              textAlign: 'center', lineHeight: 1.2, padding: 4,
+            }}>{logo.name}</span>
+          </div>
+        ) : (
+          <img
+            src={logo.url}
+            alt={logo.name}
+            loading="lazy"
+            draggable={false}
+            onError={() => setErr(true)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', userSelect: 'none' }}
+          />
+        )}
+        {/* Shine overlay */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: '40%',
+          background: 'linear-gradient(to bottom, rgba(255,255,255,0.08) 0%, transparent 100%)',
+          pointerEvents: 'none',
+        }} />
+      </div>
+      {/* Name label */}
+      <span style={{
+        fontSize: 8, fontWeight: 500, color: hov ? C.accent : C.textSub,
+        letterSpacing: '0.02em', textAlign: 'center', lineHeight: 1.1,
+        maxWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        transition: 'color 0.18s',
+      }}>{logo.name}</span>
     </div>
   );
 });
 
 // ─── OTT PROVIDER SELECTOR ────────────────────────────────────────────────────
-// B&W monochrome — all pills same dark glass style, logo in white only
 function OttSelector({
   selected, onSelect, currentTab, onTabChange,
 }: {
@@ -806,8 +830,8 @@ function OttSelector({
         </h2>
       </div>
 
-      {/* Movies / Series tab */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+      {/* Movies / Series tab — solid 3D style */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
         {(['movie', 'tv'] as const).map(tab => {
           const label = tab === 'movie' ? 'Movies' : 'Series';
           const active = currentTab === tab;
@@ -816,15 +840,17 @@ function OttSelector({
               key={tab}
               onClick={() => onTabChange(tab)}
               style={{
-                padding: '8px 22px', borderRadius: 99, cursor: 'pointer',
+                padding: '9px 24px', borderRadius: 99, cursor: 'pointer',
                 fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
                 color: active ? '#fff' : C.textSub,
-                background: active ? 'rgba(248,249,251,0.13)' : 'transparent',
-                border: active ? '1px solid rgba(248,249,251,0.28)' : '1px solid rgba(248,249,251,0.07)',
-                backdropFilter: active ? 'blur(16px)' : 'none',
-                WebkitBackdropFilter: active ? 'blur(16px)' : 'none',
-                boxShadow: active ? '0 0 0 1px rgba(255,255,255,0.06), inset 0 1px 0 rgba(255,255,255,0.1)' : 'none',
-                transition: 'all 0.2s cubic-bezier(0.2,0.8,0.2,1)',
+                background: active ? '#1a1f2a' : 'transparent',
+                border: 'none',
+                boxShadow: active
+                  ? '0 4px 0 #090c12, 0 2px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12)'
+                  : 'none',
+                transform: active ? 'translateY(-1px)' : 'translateY(0)',
+                transition: 'all 0.15s ease',
+                WebkitTapHighlightColor: 'transparent',
               }}
             >{label}</button>
           );
@@ -843,45 +869,110 @@ function OttSelector({
         )}
       </div>
 
-      {/* Provider pill strip — real logos, no text labels */}
-      <div style={{ display: 'flex', gap: 10, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4 }}>
+      {/* Provider logo grid — 3D press buttons with brand colour glow on select */}
+      <div style={{ display: 'flex', gap: 10, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 6 }}>
         {PROVIDERS.map(p => {
           const isSel = selected === p.id;
+          const brandColor = PROVIDER_COLORS[p.id] || '#ffffff';
           return (
-            <button
+            <ProviderButton
               key={p.id}
+              provider={p}
+              selected={isSel}
+              brandColor={brandColor}
               onClick={() => handleClick(p.id)}
-              title={p.name}
-              style={{
-                flexShrink: 0,
-                width: 88, height: 56,
-                borderRadius: 16,
-                display: 'flex',
-                alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', fontFamily: 'inherit', padding: 12,
-                background: isSel
-                  ? 'rgba(248,249,251,0.09)'
-                  : 'rgba(15,19,24,0.6)',
-                border: isSel
-                  ? '1.5px solid rgba(255,255,255,0.3)'
-                  : '1px solid rgba(255,255,255,0.07)',
-                boxShadow: isSel
-                  ? '0 0 20px rgba(255,255,255,0.07), inset 0 1px 0 rgba(255,255,255,0.12)'
-                  : '0 2px 8px rgba(0,0,0,0.4)',
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
-                transform: isSel ? 'scale(1.07)' : 'scale(1)',
-                transition: 'all 0.22s cubic-bezier(0.2,0.8,0.2,1)',
-                opacity: isSel ? 1 : 0.6,
-              }}
-            >
-              <ProviderLogo provider={p} size={32} />
-            </button>
+            />
           );
         })}
       </div>
     </div>
   );
+}
+
+// 3D press button for each provider — real logo, brand glow, solid raised feel
+const ProviderButton = memo(function ProviderButton({
+  provider, selected, brandColor, onClick,
+}: {
+  provider: ProviderConfig;
+  selected: boolean;
+  brandColor: string;
+  onClick: () => void;
+}) {
+  const [pressed, setPressed] = useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      onPointerDown={() => setPressed(true)}
+      onPointerUp={() => setPressed(false)}
+      onPointerLeave={() => setPressed(false)}
+      title={provider.name}
+      style={{
+        flexShrink: 0,
+        width: 76,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 7,
+        cursor: 'pointer',
+        background: 'none',
+        border: 'none',
+        padding: '2px 0 4px',
+        fontFamily: 'inherit',
+        WebkitTapHighlightColor: 'transparent',
+        transform: pressed ? 'scale(0.93) translateY(2px)' : selected ? 'scale(1.06) translateY(-2px)' : 'scale(1)',
+        transition: 'transform 0.12s ease',
+      }}
+    >
+      {/* Logo tile — raised 3D card */}
+      <div style={{
+        width: 58,
+        height: 58,
+        borderRadius: 16,
+        overflow: 'hidden',
+        position: 'relative',
+        // 3D raised look: top highlight + bottom shadow
+        boxShadow: selected
+          ? `0 0 0 2.5px ${brandColor}, 0 6px 0 ${adjustColor(brandColor, -40)}, 0 8px 24px ${brandColor}55`
+          : '0 4px 0 #090c12, 0 6px 16px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)',
+        transition: 'box-shadow 0.2s ease, transform 0.12s ease',
+        background: '#111418',
+      }}>
+        <ProviderLogo provider={provider} size={58} />
+        {/* Top shine */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: '45%',
+          background: 'linear-gradient(to bottom, rgba(255,255,255,0.1) 0%, transparent 100%)',
+          borderRadius: '16px 16px 0 0',
+          pointerEvents: 'none',
+        }} />
+      </div>
+
+      {/* Label below — highlighted when selected */}
+      <span style={{
+        fontSize: 9,
+        fontWeight: selected ? 700 : 500,
+        color: selected ? '#fff' : C.textSub,
+        letterSpacing: '0.02em',
+        textAlign: 'center',
+        lineHeight: 1.2,
+        maxWidth: 70,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        transition: 'color 0.2s',
+      }}>{provider.name}</span>
+    </button>
+  );
+});
+
+// Helper to darken a hex color for the 3D bottom shadow
+function adjustColor(hex: string, amount: number): string {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = Math.max(0, Math.min(255, (num >> 16) + amount));
+  const g = Math.max(0, Math.min(255, ((num >> 8) & 0xff) + amount));
+  const b = Math.max(0, Math.min(255, (num & 0xff) + amount));
+  return `rgb(${r},${g},${b})`;
 }
 
 // ─── HERO SLIDE ───────────────────────────────────────────────────────────────
@@ -1167,67 +1258,95 @@ function ContinueWatchingRail({ onPlay, onRemove }: {
 
 // ─── DISCLAIMER SECTION ───────────────────────────────────────────────────────
 function DisclaimerSection() {
+  const badges = [
+    {
+      icon: <Shield size={13} />,
+      label: 'Third-party Content',
+      color: '#6366f1',       // indigo
+      bg: 'rgba(99,102,241,0.12)',
+      border: 'rgba(99,102,241,0.3)',
+    },
+    {
+      icon: <Film size={13} />,
+      label: 'No File Hosting',
+      color: '#10b981',       // emerald
+      bg: 'rgba(16,185,129,0.12)',
+      border: 'rgba(16,185,129,0.3)',
+    },
+    {
+      icon: <AlertCircle size={13} />,
+      label: 'DMCA Compliant',
+      color: '#f59e0b',       // amber
+      bg: 'rgba(245,158,11,0.12)',
+      border: 'rgba(245,158,11,0.3)',
+    },
+  ];
+
   return (
     <section style={{
       marginInline: '4vw',
       marginBottom: 40,
-      borderRadius: 18,
-      padding: '28px 28px 24px',
-      background: C.surface,
-      border: `1px solid ${C.border}`,
+      borderRadius: 20,
+      padding: '0',
       position: 'relative',
       overflow: 'hidden',
+      background: 'linear-gradient(135deg, #0e1117 0%, #111827 100%)',
+      border: '1px solid rgba(255,255,255,0.07)',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
     }}>
-      {/* Subtle noise texture via gradient */}
+      {/* Colour accent bar at top */}
       <div style={{
-        position: 'absolute', inset: 0, borderRadius: 18,
-        background: 'radial-gradient(ellipse at 20% 50%, rgba(248,249,251,0.015) 0%, transparent 70%)',
-        pointerEvents: 'none',
+        height: 3,
+        background: 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 35%, #ec4899 65%, #f59e0b 100%)',
+        width: '100%',
       }} />
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-        <div style={{
-          width: 34, height: 34, borderRadius: 10,
-          background: C.elevated, border: `1px solid ${C.border}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>
-          <AlertCircle size={16} color={C.textSub} />
-        </div>
-        <div>
-          <h3 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: C.text, letterSpacing: '-0.01em' }}>
-            Important Disclaimer
-          </h3>
-          <p style={{ margin: 0, fontSize: 12, color: C.textSub, marginTop: 1 }}>◝(ᵔᵕᵔ)◜</p>
-        </div>
-      </div>
-
-      {/* Body */}
-      <p style={{
-        margin: '0 0 20px', fontSize: 12, color: C.textSub, lineHeight: 1.75,
-        fontWeight: 400,
-      }}>
-        Cineverse operates as a content aggregator and does not host any media files on our servers.
-        All content is sourced from third-party providers and embedded services. For any copyright
-        concerns or DMCA takedown requests, please contact the respective content providers directly.
-      </p>
-
-      {/* Badges */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {[
-          { icon: <Shield size={11} />, label: 'Third-party Content' },
-          { icon: <Film size={11} />, label: 'No File Hosting' },
-        ].map(badge => (
-          <div key={badge.label} style={{
-            display: 'flex', alignItems: 'center', gap: 5,
-            padding: '5px 12px', borderRadius: 99,
-            background: C.elevated, border: `1px solid ${C.border}`,
-            fontSize: 11, fontWeight: 600, color: C.textSub,
+      <div style={{ padding: '22px 22px 20px' }}>
+        {/* Header row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: 'rgba(99,102,241,0.15)',
+            border: '1px solid rgba(99,102,241,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           }}>
-            <span style={{ color: C.textSub }}>{badge.icon}</span>
-            {badge.label}
+            <AlertCircle size={17} color="#818cf8" />
           </div>
-        ))}
+          <div>
+            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: C.text, letterSpacing: '-0.01em' }}>
+              Important Disclaimer
+            </h3>
+            <p style={{ margin: 0, fontSize: 11, color: '#6366f1', marginTop: 2, fontWeight: 500 }}>
+              Content Aggregator · Not a Host
+            </p>
+          </div>
+        </div>
+
+        {/* Body */}
+        <p style={{
+          margin: '0 0 18px', fontSize: 12, color: 'rgba(135,145,160,0.9)', lineHeight: 1.8,
+          fontWeight: 400,
+        }}>
+          Cineverse operates as a content aggregator and does not host any media files on our servers.
+          All content is sourced from third-party providers and embedded services. For copyright
+          concerns or DMCA takedown requests, contact the respective content providers directly.
+        </p>
+
+        {/* Coloured badges */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {badges.map(b => (
+            <div key={b.label} style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '6px 13px', borderRadius: 99,
+              background: b.bg,
+              border: `1px solid ${b.border}`,
+              fontSize: 11, fontWeight: 600, color: b.color,
+            }}>
+              <span style={{ color: b.color, display: 'flex' }}>{b.icon}</span>
+              {b.label}
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
