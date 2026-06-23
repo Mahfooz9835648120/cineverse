@@ -11,14 +11,33 @@ import {
 } from 'lucide-react';
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
+// Matched 1:1 to CineverseHome.tsx so the player feels like the same app.
 const C = {
-  bg:        '#0F1115',
-  surface:   '#181C22',
-  elevated:  '#20252D',
+  bg:        '#07090D',
+  surface:   '#0F1318',
+  elevated:  '#181D24',
   text:      '#F8F9FB',
-  textSub:   '#A0A7B4',
-  border:    'rgba(248,249,251,0.08)',
-  borderHov: 'rgba(248,249,251,0.15)',
+  textSub:   '#8792A0',
+  accent:    '#CDD1D8',
+  border:    'rgba(248,249,251,0.055)',
+  borderHov: 'rgba(248,249,251,0.13)',
+  overlay:   'rgba(7,9,13,0.9)',
+} as const;
+
+const G = {
+  light: {
+    background:          'rgba(15,19,24,0.45)',
+    backdropFilter:      'blur(20px)',
+    WebkitBackdropFilter:'blur(20px)',
+    border:              '1px solid rgba(248,249,251,0.07)',
+  },
+  strong: {
+    background:          'rgba(7,9,13,0.62)',
+    backdropFilter:      'blur(28px)',
+    WebkitBackdropFilter:'blur(28px)',
+    border:              '1px solid rgba(255,255,255,0.13)',
+    boxShadow:           '0 6px 28px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07)',
+  },
 } as const;
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -870,69 +889,89 @@ export default function PlayerPage() {
     setCurEp(ep); setIframeKey(k => k + 1);
   };
 
-  const currentEpisodeObj = episodes.find(e => e.episode_number === curEp);
   const [overviewExpanded, setOverviewExpanded] = useState(false);
+
+  // Scroll-aware floating navbar — mirrors the Home page's Nav behaviour
+  const [scrollY, setScrollY] = useState(0);
+  useEffect(() => {
+    const fn = () => setScrollY(window.scrollY);
+    window.addEventListener('scroll', fn, { passive: true });
+    return () => window.removeEventListener('scroll', fn);
+  }, []);
+  const atTop = scrollY < 20;
 
   // ─────────────────────────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: '100vh', background: C.bg, fontFamily: 'Inter, system-ui, sans-serif', color: C.text, animation: 'sv-fadein 0.3s ease' }}>
 
-      {/* ── Top bar ── */}
-      <div style={{
-        position: 'sticky', top: 0, zIndex: 40,
-        background: 'rgba(15,17,21,0.97)', backdropFilter: 'blur(12px)',
-        borderBottom: `1px solid ${C.border}`,
-        padding: '0 4vw', height: 56,
-        display: 'flex', alignItems: 'center', gap: 16,
+      {/* ── Floating Glass Navbar — matches Home page Nav exactly ── */}
+      <nav style={{
+        position: 'fixed',
+        top: atTop ? 14 : 10,
+        left: atTop ? '4vw' : '3vw',
+        right: atTop ? '4vw' : '3vw',
+        zIndex: 50,
+        borderRadius: 18,
+        height: atTop ? 58 : 52,
+        padding: '0 16px',
+        background: atTop ? 'rgba(15,19,24,0.55)' : 'rgba(7,9,13,0.82)',
+        backdropFilter: 'blur(32px)',
+        WebkitBackdropFilter: 'blur(32px)',
+        border: `1px solid ${atTop ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.1)'}`,
+        boxShadow: atTop
+          ? '0 4px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06)'
+          : '0 8px 40px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07)',
+        transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
+        display: 'flex', alignItems: 'center', gap: 10,
       }}>
+        {/* Back button */}
         <button
           onClick={() => navigate('/')}
+          aria-label="Back"
           style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: C.textSub, fontSize: 13, padding: '6px 10px',
-            borderRadius: 6, transition: 'color 0.15s',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+            background: 'rgba(248,249,251,0.07)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+            color: C.text, cursor: 'pointer',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)',
+            transition: 'background 0.15s, border-color 0.15s',
           }}
-          onMouseEnter={e => (e.currentTarget.style.color = C.text)}
-          onMouseLeave={e => (e.currentTarget.style.color = C.textSub)}
-        ><ArrowLeft size={15} /> Back</button>
+        ><ArrowLeft size={15} /></button>
 
+        {/* Title / episode info — fills remaining space */}
         <div style={{ flex: 1, minWidth: 0 }}>
           {item && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap', overflow: 'hidden' }}>
+              <span style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: C.text }}>
                 {item.title}
               </span>
               {mediaType !== 'movie' && (
-                <span style={{ fontSize: 12, color: C.textSub, flexShrink: 0 }}>
+                <span style={{ fontSize: 11, color: C.textSub, flexShrink: 0, whiteSpace: 'nowrap' }}>
                   {isAnime ? `Ep ${curEp}` : `S${curSeason} · E${curEp}`}
-                  {currentEpisodeObj?.name ? ` — ${currentEpisodeObj.name}` : ''}
                 </span>
               )}
               {isAnime && (
                 <span style={{
-                  fontSize: 10, fontWeight: 700, color: '#f472b6',
+                  fontSize: 9, fontWeight: 700, color: C.text,
                   padding: '2px 7px', borderRadius: 4,
-                  border: '1px solid rgba(244,114,182,0.3)', background: 'rgba(244,114,182,0.08)',
+                  border: `1px solid ${C.border}`, background: C.elevated,
                   letterSpacing: '0.06em', textTransform: 'uppercase', flexShrink: 0,
-                }}>ANIME</span>
+                }}>Anime</span>
               )}
             </div>
           )}
         </div>
 
-        {isAnime && (
-          <div style={{ fontSize: 11, color: C.textSub, flexShrink: 0 }}>
-            {loadingAL ? 'AniList…'
-              : anilistId ? <span style={{ color: '#02a9ff' }}>AL:{anilistId}</span>
-              : <span style={{ color: '#f59e0b' }}>AL:?</span>}
-          </div>
-        )}
-
-        <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.04em', flexShrink: 0 }}>
-          Cine<span style={{ color: C.textSub, fontWeight: 400 }}>verse</span>
+        {/* Logo */}
+        <span style={{ fontSize: 15, fontWeight: 900, letterSpacing: '-0.05em', flexShrink: 0, color: C.text }}>
+          Cine<span style={{ color: C.textSub, fontWeight: 300 }}>verse</span>
         </span>
-      </div>
+      </nav>
+
+      {/* Spacer so content starts below the floating navbar */}
+      <div style={{ height: 'calc(58px + 28px)' }} />
 
       <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 4vw 80px', animation: 'sv-slideup 0.35s ease' }}>
 
@@ -1064,7 +1103,7 @@ export default function PlayerPage() {
                   title={needsAL ? 'Resolving AniList ID…' : p.label}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 4,
-                    padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                    padding: '6px 14px', borderRadius: 99, fontSize: 12, fontWeight: 600,
                     border: `1px solid ${active ? C.text : C.border}`,
                     background: active ? C.text : 'transparent',
                     color: active ? C.bg : needsAL ? C.textSub : C.text,
@@ -1095,7 +1134,7 @@ export default function PlayerPage() {
               onClick={() => setIframeKey(k => k + 1)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
-                padding: '6px 12px', borderRadius: 6, fontSize: 12,
+                padding: '6px 12px', borderRadius: 99, fontSize: 12,
                 border: `1px solid ${C.border}`, background: 'transparent',
                 color: C.textSub, cursor: 'pointer', transition: 'all 0.15s',
               }}
@@ -1108,7 +1147,7 @@ export default function PlayerPage() {
                 onClick={handleNextEp}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                  padding: '6px 14px', borderRadius: 99, fontSize: 12, fontWeight: 600,
                   border: `1px solid ${C.border}`, background: C.elevated,
                   color: C.text, cursor: 'pointer', transition: 'all 0.15s',
                 }}
@@ -1122,7 +1161,7 @@ export default function PlayerPage() {
                 onClick={() => setEpPanelOpen(o => !o)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                  padding: '6px 14px', borderRadius: 99, fontSize: 12, fontWeight: 600,
                   border: `1px solid ${epPanelOpen ? C.text : C.border}`,
                   background: epPanelOpen ? C.text : C.elevated,
                   color: epPanelOpen ? C.bg : C.text,
@@ -1162,9 +1201,11 @@ export default function PlayerPage() {
                     {item.type === 'movie' ? 'Movie' : isAnime ? 'Anime' : 'TV Series'}
                   </span>
                 </div>
-                {isAnime && anilistId && (
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 4, border: '1px solid rgba(2,169,255,0.3)', background: 'rgba(2,169,255,0.08)' }}>
-                    <span style={{ fontSize: 11, color: '#02a9ff', fontWeight: 600 }}>AniList #{anilistId}</span>
+                {isAnime && (loadingAL || anilistId) && (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 4, border: `1px solid ${C.border}`, background: C.elevated }}>
+                    <span style={{ fontSize: 11, color: C.textSub, fontWeight: 600 }}>
+                      {loadingAL ? 'AniList…' : `AniList #${anilistId}`}
+                    </span>
                   </div>
                 )}
               </div>
