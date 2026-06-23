@@ -24,7 +24,7 @@ const PROVIDER_DEFS: ProviderDef[] = [
   // ── Multi-audio ─────────────────────────────────────────────────────────────
   {
     id: 'vidzee-hq', label: 'VidZee HQ',
-    searchType: 'tmdb', contentTypes: ['movie', 'tv', 'anime'], priority: 1,
+    searchType: 'tmdb', contentTypes: ['movie', 'tv', 'anime'], priority: 10,
     audioVariants: [
       { key: 'en', label: 'EN' }, { key: 'hi', label: 'HI' },
       { key: 'fr', label: 'FR' }, { key: 'es', label: 'ES' }, { key: 'ja', label: 'JA' },
@@ -35,7 +35,7 @@ const PROVIDER_DEFS: ProviderDef[] = [
   },
   {
     id: 'vidzee', label: 'VidZee',
-    searchType: 'tmdb', contentTypes: ['movie', 'tv', 'anime'], priority: 2,
+    searchType: 'tmdb', contentTypes: ['movie', 'tv', 'anime'], priority: 3,
     audioVariants: [
       { key: 'en', label: 'EN' }, { key: 'hi', label: 'HI' },
       { key: 'fr', label: 'FR' }, { key: 'es', label: 'ES' },
@@ -93,7 +93,7 @@ const PROVIDER_DEFS: ProviderDef[] = [
   },
   {
     id: 'cinemaos', label: 'CinemaOS',
-    searchType: 'tmdb', contentTypes: ['movie', 'tv', 'anime'], priority: 10,
+    searchType: 'tmdb', contentTypes: ['movie', 'tv', 'anime'], priority: 1,
     movieUrl: (id) => `https://cinemaos.tech/player/${id}`,
     tvUrl:    (id, s, e) => `https://cinemaos.tech/player/${id}/${s}/${e}`,
     animeUrl: (id, ep) => `https://cinemaos.tech/player/${id}/1/${ep}`,
@@ -107,7 +107,7 @@ const PROVIDER_DEFS: ProviderDef[] = [
   },
   {
     id: 'nontongo', label: 'NontonGo',
-    searchType: 'tmdb', contentTypes: ['movie'], priority: 12,
+    searchType: 'tmdb', contentTypes: ['movie'], priority: 2,
     movieUrl: (id) => `https://www.NontonGo.win/embed/movie/${id}`,
   },
   {
