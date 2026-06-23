@@ -23,21 +23,8 @@ interface ProviderDef {
 const PROVIDER_DEFS: ProviderDef[] = [
   // ── Multi-audio ─────────────────────────────────────────────────────────────
   {
-    id: 'videasy', label: 'Videasy',
-    searchType: 'tmdb', contentTypes: ['movie', 'tv'], priority: 1,
-    audioVariants: [
-      { key: 'en', label: 'EN' }, { key: 'hi', label: 'HI' },
-      { key: 'fr', label: 'FR' }, { key: 'es', label: 'ES' },
-      { key: 'de', label: 'DE' }, { key: 'ja', label: 'JA' },
-    ],
-    movieUrl: (id, lang = 'en') =>
-      `https://player.videasy.net/movie/${id}?color=6366f1&overlay=true&lang=${lang}`,
-    tvUrl: (id, s, e, lang = 'en') =>
-      `https://player.videasy.net/tv/${id}/${s}/${e}?color=6366f1&overlay=true&nextEpisode=true&autoplayNextEpisode=true&lang=${lang}`,
-  },
-  {
     id: 'vidzee-hq', label: 'VidZee HQ',
-    searchType: 'tmdb', contentTypes: ['movie', 'tv', 'anime'], priority: 2,
+    searchType: 'tmdb', contentTypes: ['movie', 'tv', 'anime'], priority: 1,
     audioVariants: [
       { key: 'en', label: 'EN' }, { key: 'hi', label: 'HI' },
       { key: 'fr', label: 'FR' }, { key: 'es', label: 'ES' }, { key: 'ja', label: 'JA' },
@@ -48,7 +35,7 @@ const PROVIDER_DEFS: ProviderDef[] = [
   },
   {
     id: 'vidzee', label: 'VidZee',
-    searchType: 'tmdb', contentTypes: ['movie', 'tv', 'anime'], priority: 3,
+    searchType: 'tmdb', contentTypes: ['movie', 'tv', 'anime'], priority: 2,
     audioVariants: [
       { key: 'en', label: 'EN' }, { key: 'hi', label: 'HI' },
       { key: 'fr', label: 'FR' }, { key: 'es', label: 'ES' },
@@ -60,71 +47,72 @@ const PROVIDER_DEFS: ProviderDef[] = [
   // ── General ─────────────────────────────────────────────────────────────────
   {
     id: 'vidup', label: 'VidUp',
-    searchType: 'tmdb', contentTypes: ['movie', 'tv'], priority: 4,
+    searchType: 'tmdb', contentTypes: ['movie', 'tv'], priority: 3,
     movieUrl: (id) => `https://vidup.to/movie/${id}?server=zenith`,
     tvUrl:    (id, s, e) => `https://vidup.to/tv/${id}/${s}/${e}?server=zenith`,
   },
   {
     id: 'vidcore', label: 'VidCore',
-    searchType: 'tmdb', contentTypes: ['movie', 'tv'], priority: 5,
+    searchType: 'tmdb', contentTypes: ['movie', 'tv'], priority: 4,
     movieUrl: (id) => `https://vidcore.net/movie/${id}?server=Crystal&autoPlay=true`,
     tvUrl:    (id, s, e) => `https://vidcore.net/tv/${id}/${s}/${e}?server=Crystal&autoPlay=true`,
   },
   {
     id: 'vidsrc-ru', label: 'VidSrc',
-    searchType: 'tmdb', contentTypes: ['movie', 'tv'], priority: 6,
+    searchType: 'tmdb', contentTypes: ['movie', 'tv'], priority: 5,
     movieUrl: (id) => `https://vidsrcme.ru/embed/movie/${id}`,
     tvUrl:    (id, s, e) => `https://vidsrcme.ru/embed/tv/${id}/${s}/${e}`,
   },
   {
-    id: 'vidsrc-xyz', label: 'VidSrc Pro',
-    searchType: 'tmdb', contentTypes: ['movie', 'tv', 'anime'], priority: 7,
-    movieUrl: (id) => `https://vidsrc.xyz/embed/movie?tmdb=${id}&ds_lang=hi`,
-    tvUrl:    (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}&ds_lang=hi`,
-    animeUrl: (id, ep) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=1&episode=${ep}&ds_lang=hi`,
+    // Replaced vidsrc.xyz (blocks unknown origins) with vidsrc.pro
+    id: 'vidsrc-pro', label: 'VidSrc Pro',
+    searchType: 'tmdb', contentTypes: ['movie', 'tv', 'anime'], priority: 6,
+    movieUrl: (id) => `https://vidsrc.pro/embed/movie/${id}`,
+    tvUrl:    (id, s, e) => `https://vidsrc.pro/embed/tv/${id}/${s}/${e}`,
+    animeUrl: (id, ep) => `https://vidsrc.pro/embed/tv/${id}/1/${ep}`,
   },
   {
     id: '1embed', label: '1Embed',
-    searchType: 'tmdb', contentTypes: ['movie', 'tv', 'anime'], priority: 8,
+    searchType: 'tmdb', contentTypes: ['movie', 'tv', 'anime'], priority: 7,
     movieUrl: (id) => `https://1embed.cc/embed/movie/${id}`,
     tvUrl:    (id, s, e) => `https://1embed.cc/embed/tv/${id}/${s}/${e}`,
     animeUrl: (id, ep) => `https://1embed.cc/embed/tv/${id}/1/${ep}`,
   },
   {
     id: 'cinesrc', label: 'CineSrc',
-    searchType: 'tmdb', contentTypes: ['movie', 'tv'], priority: 9,
+    searchType: 'tmdb', contentTypes: ['movie', 'tv'], priority: 8,
     movieUrl: (id) => `https://cinesrc.st/embed/movie/${id}`,
     tvUrl:    (id, s, e) => `https://cinesrc.st/embed/tv/${id}/${s}/${e}`,
   },
   {
     id: 'primesrc', label: 'PrimeSrc',
-    searchType: 'tmdb', contentTypes: ['movie', 'tv'], priority: 10,
+    searchType: 'tmdb', contentTypes: ['movie', 'tv'], priority: 9,
     movieUrl: (id) => `https://primesrc.me/embed/movie?tmdb=${id}`,
     tvUrl:    (id, s, e) =>
       `https://primesrc.me/embed/tv?tmdb=${id}&season=${s}&episode=${e}&fallback=false&serverOrder=PrimeVid,Voe,Dood`,
   },
   {
     id: 'cinemaos', label: 'CinemaOS',
-    searchType: 'tmdb', contentTypes: ['movie', 'tv', 'anime'], priority: 11,
+    searchType: 'tmdb', contentTypes: ['movie', 'tv', 'anime'], priority: 10,
     movieUrl: (id) => `https://cinemaos.tech/player/${id}`,
     tvUrl:    (id, s, e) => `https://cinemaos.tech/player/${id}/${s}/${e}`,
     animeUrl: (id, ep) => `https://cinemaos.tech/player/${id}/1/${ep}`,
   },
   {
     id: '111movies', label: '111Movies',
-    searchType: 'tmdb', contentTypes: ['movie', 'tv', 'anime'], priority: 12,
+    searchType: 'tmdb', contentTypes: ['movie', 'tv', 'anime'], priority: 11,
     movieUrl: (id) => `https://111movies.net/movie/${id}`,
     tvUrl:    (id, s, e) => `https://111movies.net/tv/${id}/${s}/${e}`,
     animeUrl: (id, ep) => `https://111movies.net/tv/${id}/1/${ep}`,
   },
   {
     id: 'nontongo', label: 'NontonGo',
-    searchType: 'tmdb', contentTypes: ['movie'], priority: 13,
+    searchType: 'tmdb', contentTypes: ['movie'], priority: 12,
     movieUrl: (id) => `https://www.NontonGo.win/embed/movie/${id}`,
   },
   {
     id: 'vidnest-tv', label: 'VidNest',
-    searchType: 'tmdb', contentTypes: ['tv'], priority: 14,
+    searchType: 'tmdb', contentTypes: ['tv'], priority: 13,
     tvUrl: (id, s, e) => `https://vidnest.fun/tv/${id}/${s}/${e}`,
   },
   // ── Anime-only (AniList routing) ────────────────────────────────────────────
