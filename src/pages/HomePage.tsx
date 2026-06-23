@@ -1,16 +1,21 @@
 // src/pages/CineverseHome.tsx
-// Cineverse — Home Page — GOD MODE REWRITE
-// Data: TMDB API — trending, popular, top rated, upcoming, search
+// Cineverse — Home Page — GOD MODE REWRITE v3
+// ✦ Floating pill glassmorphic navbar (rounded rect, margins, true glass)
+// ✦ Real CDN provider logos (Simple Icons) with B&W monochrome
+// ✦ TMDB discover fetch per provider (real loading state)
+// ✦ Netflix + Prime Top 10 as MediaCards (landscape, between rails)
+// ✦ Disclaimer section + floating bottom dock
 
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Play, Search, Film, Tv, TrendingUp, Star,
   ChevronLeft, ChevronRight, Clock, Trash2, Apple,
+  Home, Compass, AlertCircle, Shield,
 } from 'lucide-react';
 import { tmdb, getTMDBImage } from '@/lib/tmdb';
 
-// ─── CONTINUE WATCHING HELPERS ───────────────────────────────────────────────
+// ─── CONTINUE WATCHING HELPERS ────────────────────────────────────────────────
 const CW_KEY = 'sv_continue_watching';
 interface ContinueWatchingEntry {
   item:      CineItem & { isAnime?: boolean };
@@ -18,7 +23,6 @@ interface ContinueWatchingEntry {
   episode:   number;
   updatedAt: number;
 }
-
 function getContinueWatching(): ContinueWatchingEntry[] {
   try {
     const raw: ContinueWatchingEntry[] = JSON.parse(localStorage.getItem(CW_KEY) || '[]');
@@ -50,16 +54,13 @@ const C = {
   overlay:   'rgba(7,9,13,0.9)',
 } as const;
 
-// Glass presets
 const G = {
-  // light glass — used for cards / surfaces
   light: {
     background:          'rgba(15,19,24,0.45)',
     backdropFilter:      'blur(20px)',
     WebkitBackdropFilter:'blur(20px)',
     border:              '1px solid rgba(248,249,251,0.07)',
   },
-  // strong glass — arrows, overlays
   strong: {
     background:          'rgba(7,9,13,0.62)',
     backdropFilter:      'blur(28px)',
@@ -82,7 +83,94 @@ export interface CineItem {
   backdrop: string;
 }
 
-// ─── TMDB NORMALISATION ───────────────────────────────────────────────────────
+// ─── PROVIDER CONFIG ──────────────────────────────────────────────────────────
+// Using Simple Icons CDN for exact brand SVG logos rendered in white
+// All presented in B&W monochrome to match the dark theme
+interface ProviderConfig {
+  id: string;
+  tmdbId: number;
+  name: string;
+  iconUrl: string | null;
+  fallbackText?: string;
+}
+
+const PROVIDERS: ProviderConfig[] = [
+  {
+    id: 'netflix',  tmdbId: 8,    name: 'Netflix',
+    iconUrl: 'https://cdn.simpleicons.org/netflix/ffffff',
+  },
+  {
+    id: 'prime',    tmdbId: 9,    name: 'Prime Video',
+    iconUrl: 'https://cdn.simpleicons.org/primevideo/ffffff',
+  },
+  {
+    id: 'appletv',  tmdbId: 350,  name: 'Apple TV+',
+    iconUrl: null, // will use Apple icon from lucide
+  },
+  {
+    id: 'hulu',     tmdbId: 15,   name: 'Hulu',
+    iconUrl: 'https://cdn.simpleicons.org/hulu/ffffff',
+  },
+  {
+    id: 'disney',   tmdbId: 337,  name: 'Disney+',
+    iconUrl: 'https://cdn.simpleicons.org/disneyplus/ffffff',
+  },
+  {
+    id: 'max',      tmdbId: 1899, name: 'Max',
+    iconUrl: null, fallbackText: 'max',
+  },
+];
+
+// Provider logo renderer — uses CDN logos with graceful text fallback
+const ProviderLogo = memo(function ProviderLogo({
+  provider, size = 28,
+}: { provider: ProviderConfig; size?: number }) {
+  const [err, setErr] = useState(false);
+
+  // Apple TV+ — lucide Apple icon
+  if (provider.id === 'appletv') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+        <Apple size={16} fill="white" color="white" />
+        <span style={{ fontSize: 7, fontWeight: 700, color: 'rgba(255,255,255,0.9)', letterSpacing: '0.04em' }}>TV+</span>
+      </div>
+    );
+  }
+
+  // Max — typed wordmark (simple icons slug may vary)
+  if (provider.id === 'max') {
+    return (
+      <span style={{
+        fontSize: 17, fontWeight: 900, color: 'white',
+        letterSpacing: '-0.04em', fontFamily: "'Arial Black', sans-serif",
+      }}>max</span>
+    );
+  }
+
+  if (provider.iconUrl && !err) {
+    return (
+      <img
+        src={provider.iconUrl}
+        alt={provider.name}
+        width={size} height={size}
+        onError={() => setErr(true)}
+        style={{ objectFit: 'contain', filter: 'brightness(1) grayscale(0)', display: 'block' }}
+      />
+    );
+  }
+
+  // Text fallback
+  return (
+    <span style={{
+      fontSize: 10, fontWeight: 900, color: 'white',
+      letterSpacing: '0.05em', textTransform: 'uppercase',
+      fontFamily: "'Arial Black', sans-serif", textAlign: 'center',
+      lineHeight: 1.1,
+    }}>{provider.name}</span>
+  );
+});
+
+// ─── TMDB GENRE MAP ───────────────────────────────────────────────────────────
 const GENRE_MAP: Record<number, string> = {
   28:'Action', 12:'Adventure', 16:'Animation', 35:'Comedy', 80:'Crime',
   99:'Documentary', 18:'Drama', 10751:'Family', 14:'Fantasy', 36:'History',
@@ -115,16 +203,55 @@ function normPage(data: any, type: 'movie' | 'tv', limit = 20): CineItem[] {
     .filter((i: CineItem) => i.tmdb_id && i.poster);
 }
 
-// 6 providers — pseudo-deterministic by tmdb_id mod 6
+// Hash-based fallback for provider filtering (when discover fails)
 const filterItemsByOtt = (items: CineItem[], ottId: string, tab: 'movie' | 'tv') => {
   const list = items.filter(i => i.type === tab);
   if (ottId === 'all') return list;
-  const MAP: Record<string, number> = {
-    netflix: 0, prime: 1, appletv: 2, hulu: 3, disney: 4, max: 5,
-  };
-  const idx = MAP[ottId];
-  return idx !== undefined ? list.filter(i => i.tmdb_id % 6 === idx) : list;
+  const provider = PROVIDERS.find(p => p.id === ottId);
+  if (!provider) return list;
+  const idx = PROVIDERS.indexOf(provider) % 6;
+  return list.filter(i => i.tmdb_id % 6 === idx);
 };
+
+// ─── TMDB DISCOVER BY WATCH PROVIDER ─────────────────────────────────────────
+// Tries multiple auth strategies for maximum compatibility
+async function tmdbDiscover(type: 'movie' | 'tv', providerId: number): Promise<any> {
+  const base = 'https://api.themoviedb.org/3';
+  const params = `with_watch_providers=${providerId}&watch_region=US&sort_by=popularity.desc&page=1`;
+
+  // Strategy 1: tmdb lib may expose discover
+  try {
+    if (typeof (tmdb as any).discover === 'function') {
+      return await (tmdb as any).discover(type, providerId);
+    }
+  } catch {}
+
+  // Strategy 2: Bearer token (modern TMDB apps)
+  const token = (import.meta as any).env?.VITE_TMDB_TOKEN
+    || (import.meta as any).env?.VITE_TMDB_READ_ACCESS_TOKEN
+    || '';
+  if (token) {
+    try {
+      const r = await fetch(`${base}/discover/${type}?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (r.ok) return r.json();
+    } catch {}
+  }
+
+  // Strategy 3: API key
+  const key = (import.meta as any).env?.VITE_TMDB_API_KEY
+    || (import.meta as any).env?.VITE_TMDB_KEY
+    || '';
+  if (key) {
+    try {
+      const r = await fetch(`${base}/discover/${type}?${params}&api_key=${key}`);
+      if (r.ok) return r.json();
+    } catch {}
+  }
+
+  return null; // Fallback to hash filtering
+}
 
 // ─── SKELETONS ────────────────────────────────────────────────────────────────
 function SkeletonCard() {
@@ -138,12 +265,19 @@ function SkeletonCard() {
   );
 }
 function SkeletonHero() {
+  return <div style={{ width: '100%', height: '85vh', background: C.surface }} className="cv-sk" />;
+}
+function SkeletonLandscape({ count = 5 }: { count?: number }) {
   return (
-    <div style={{ width: '100%', height: '85vh', background: C.surface }} className="cv-sk" />
+    <div style={{ display: 'flex', gap: 10, overflow: 'hidden' }}>
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} style={{ flexShrink: 0, width: 260, height: 160, borderRadius: 14, background: C.surface }} className="cv-sk" />
+      ))}
+    </div>
   );
 }
 
-// ─── POSTER CARD ─────────────────────────────────────────────────────────────
+// ─── POSTER CARD ──────────────────────────────────────────────────────────────
 const PosterCard = memo(function PosterCard({
   item, onClick,
 }: { item: CineItem; onClick: (item: CineItem) => void }) {
@@ -207,10 +341,8 @@ const PosterCard = memo(function PosterCard({
   );
 });
 
-// ─── GLASS ARROW BUTTON ───────────────────────────────────────────────────────
-function GlassArrow({
-  dir, onClick, style = {},
-}: { dir: 'l' | 'r'; onClick: () => void; style?: React.CSSProperties }) {
+// ─── GLASS ARROW ──────────────────────────────────────────────────────────────
+function GlassArrow({ dir, onClick, style = {} }: { dir: 'l' | 'r'; onClick: () => void; style?: React.CSSProperties }) {
   const [hov, setHov] = useState(false);
   return (
     <button
@@ -236,7 +368,7 @@ function GlassArrow({
   );
 }
 
-// ─── HORIZONTAL RAIL ─────────────────────────────────────────────────────────
+// ─── HORIZONTAL RAIL ──────────────────────────────────────────────────────────
 function Rail({
   title, icon, items, loading, onItemClick,
 }: {
@@ -247,7 +379,10 @@ function Rail({
   const scrollRef = useRef<HTMLDivElement>(null);
   const scroll = (dir: 'l' | 'r') => {
     if (!scrollRef.current) return;
-    scrollRef.current.scrollBy({ left: dir === 'l' ? -scrollRef.current.clientWidth * 0.8 : scrollRef.current.clientWidth * 0.8, behavior: 'smooth' });
+    scrollRef.current.scrollBy({
+      left: dir === 'l' ? -scrollRef.current.clientWidth * 0.8 : scrollRef.current.clientWidth * 0.8,
+      behavior: 'smooth',
+    });
   };
   return (
     <section style={{ marginBottom: 40 }}>
@@ -276,7 +411,7 @@ function Rail({
   );
 }
 
-// ─── TOP TEN BANNER RAIL ──────────────────────────────────────────────────────
+// ─── TOP 10 BANNER RAIL ───────────────────────────────────────────────────────
 function TopTenRail({
   title, items, loading, onItemClick,
 }: { title: string; items: CineItem[]; loading: boolean; onItemClick: (item: CineItem) => void }) {
@@ -302,7 +437,10 @@ function TopTenRail({
 
   const slide = (dir: 'l' | 'r') => {
     if (!scrollRef.current) return;
-    scrollRef.current.scrollBy({ left: dir === 'l' ? -scrollRef.current.clientWidth : scrollRef.current.clientWidth, behavior: 'smooth' });
+    scrollRef.current.scrollBy({
+      left: dir === 'l' ? -scrollRef.current.clientWidth : scrollRef.current.clientWidth,
+      behavior: 'smooth',
+    });
   };
 
   if (loading) return <div style={{ height: 280, marginInline: '4vw', borderRadius: 18, marginBottom: 42 }} className="cv-sk" />;
@@ -314,7 +452,6 @@ function TopTenRail({
         Top 10 {title}
       </h2>
       <div style={{ position: 'relative', borderRadius: 18, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.7)' }}>
-        {/* Arrows overlaid */}
         <div style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
           <GlassArrow dir="l" onClick={() => slide('l')} />
         </div>
@@ -322,7 +459,6 @@ function TopTenRail({
           <GlassArrow dir="r" onClick={() => slide('r')} />
         </div>
 
-        {/* Slides */}
         <div ref={scrollRef} style={{ display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}>
           {top10.map((item, idx) => (
             <div
@@ -360,31 +496,28 @@ function TopTenRail({
                   </div>
                 </div>
               </div>
+              {/* Dot indicators */}
+              <div style={{ position: 'absolute', bottom: 10, right: 16, display: 'flex', gap: 4, zIndex: 5 }}>
+                {top10.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const el = scrollRef.current;
+                      if (!el) return;
+                      const s = el.children[i] as HTMLElement;
+                      s?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+                    }}
+                    style={{
+                      width: i === activeIdx ? 18 : 4, height: 4, borderRadius: 2,
+                      background: i === activeIdx ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.25)',
+                      border: 'none', cursor: 'pointer', padding: 0,
+                      transition: 'width 0.22s ease, background 0.22s ease',
+                    }}
+                  />
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
-
-        {/* Dot indicators */}
-        <div style={{
-          position: 'absolute', bottom: 10, right: 16,
-          display: 'flex', gap: 4, zIndex: 5,
-        }}>
-          {top10.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => {
-                const el = scrollRef.current;
-                if (!el) return;
-                const slide = el.children[i] as HTMLElement;
-                slide?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
-              }}
-              style={{
-                width: i === activeIdx ? 18 : 4, height: 4, borderRadius: 2,
-                background: i === activeIdx ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.25)',
-                border: 'none', cursor: 'pointer', padding: 0,
-                transition: 'width 0.22s ease, background 0.22s ease',
-              }}
-            />
           ))}
         </div>
       </div>
@@ -392,36 +525,61 @@ function TopTenRail({
   );
 }
 
-// ─── NETFLIX SHOWCASE SECTION ─────────────────────────────────────────────────
-function NetflixShowcase({
-  items, loading, onItemClick,
-}: { items: CineItem[]; loading: boolean; onItemClick: (item: CineItem) => void }) {
+// ─── PROVIDER SHOWCASE (Netflix / Prime Top 10 — landscape MediaCards) ────────
+// "in between" the rails, NOT the TopTenRail format
+// Shows ranked landscape cards with provider logo badge + number
+function ProviderShowcase({
+  provider, items, loading, onItemClick,
+}: {
+  provider: ProviderConfig;
+  items: CineItem[];
+  loading: boolean;
+  onItemClick: (item: CineItem) => void;
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const netflixItems = items.filter(i => i.tmdb_id % 6 === 0 && (i.backdrop || i.poster)).slice(0, 10);
+  // Filter items to this provider using hash, take top 10
+  const providerIdx = PROVIDERS.indexOf(provider) % 6;
+  const filtered = items
+    .filter(i => i.tmdb_id % 6 === providerIdx && (i.backdrop || i.poster))
+    .slice(0, 10);
+
   const slide = (dir: 'l' | 'r') => {
     scrollRef.current?.scrollBy({ left: dir === 'l' ? -290 : 290, behavior: 'smooth' });
   };
 
-  if (loading || !netflixItems.length) return null;
+  if (loading) {
+    return (
+      <section style={{ marginBottom: 48, paddingInline: '4vw' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: C.elevated }} className="cv-sk" />
+          <div style={{ width: 140, height: 16, borderRadius: 4, background: C.elevated }} className="cv-sk" />
+        </div>
+        <SkeletonLandscape />
+      </section>
+    );
+  }
+  if (!filtered.length) return null;
 
   return (
     <section style={{ marginBottom: 48, paddingInline: '4vw' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+      {/* Header — B&W monochrome, no brand color */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        {/* Provider icon pill */}
         <div style={{
-          width: 30, height: 30, borderRadius: 8,
-          background: '#E50914',
+          width: 36, height: 36, borderRadius: 10,
+          background: C.elevated,
+          border: `1px solid ${C.border}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 0 18px rgba(229,9,20,0.45)',
+          flexShrink: 0,
         }}>
-          <span style={{ fontSize: 16, fontWeight: 900, color: '#fff', letterSpacing: '-0.05em', fontFamily: 'Arial Black, sans-serif' }}>N</span>
+          <ProviderLogo provider={provider} size={20} />
         </div>
         <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.text, letterSpacing: '-0.02em' }}>
-          Most Watched on <span style={{ color: '#E50914' }}>Netflix</span>
+          Most Watched on <span style={{ color: C.accent }}>{provider.name}</span>
         </h2>
       </div>
 
-      {/* Scrollable banner cards */}
+      {/* Landscape MediaCards with rank overlay */}
       <div style={{ position: 'relative' }}>
         <div style={{ position: 'absolute', left: -10, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
           <GlassArrow dir="l" onClick={() => slide('l')} />
@@ -430,7 +588,7 @@ function NetflixShowcase({
           display: 'flex', gap: 10, overflowX: 'auto',
           scrollbarWidth: 'none', scrollSnapType: 'x proximity', paddingBottom: 2,
         }}>
-          {netflixItems.map((item, idx) => (
+          {filtered.map((item, idx) => (
             <div
               key={item.tmdb_id}
               onClick={() => onItemClick(item)}
@@ -439,27 +597,51 @@ function NetflixShowcase({
                 overflow: 'hidden', position: 'relative', cursor: 'pointer',
                 scrollSnapAlign: 'start', background: C.surface,
                 boxShadow: '0 6px 24px rgba(0,0,0,0.5)',
-                transition: 'transform 0.2s ease',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.transform = 'scale(1.03)';
+                (e.currentTarget as HTMLElement).style.boxShadow = '0 12px 40px rgba(0,0,0,0.7)';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
+                (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 24px rgba(0,0,0,0.5)';
               }}
             >
-              <img src={item.backdrop || item.poster} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(7,9,13,0.75) 0%, transparent 60%), linear-gradient(to top, rgba(7,9,13,0.92) 0%, transparent 55%)' }} />
-              {/* N badge */}
-              <div style={{ position: 'absolute', top: 9, left: 9, width: 22, height: 22, borderRadius: 5, background: '#E50914', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(229,9,20,0.5)' }}>
-                <span style={{ fontSize: 11, fontWeight: 900, color: '#fff', fontFamily: 'Arial Black, sans-serif' }}>N</span>
-              </div>
-              {/* Rank */}
+              <img
+                src={item.backdrop || item.poster} alt=""
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+              {/* Gradient overlays */}
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(7,9,13,0.7) 0%, transparent 55%), linear-gradient(to top, rgba(7,9,13,0.9) 0%, transparent 50%)' }} />
+
+              {/* Provider logo badge — top left, small, monochrome */}
               <div style={{
-                position: 'absolute', bottom: 8, left: 10,
+                position: 'absolute', top: 9, left: 9,
+                width: 26, height: 26, borderRadius: 7,
+                background: 'rgba(15,19,24,0.85)',
+                backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+                border: `1px solid ${C.border}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <ProviderLogo provider={provider} size={14} />
+              </div>
+
+              {/* Rank number */}
+              <div style={{
+                position: 'absolute', bottom: 6, left: 10,
                 fontSize: 48, fontWeight: 900, fontStyle: 'italic',
                 background: 'linear-gradient(to bottom, rgba(255,255,255,0.88) 20%, rgba(255,255,255,0.08) 100%)',
                 WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                 lineHeight: 1, userSelect: 'none', letterSpacing: '-0.04em',
               }}>{idx + 1}</div>
-              {/* Title */}
+
+              {/* Title + meta */}
               <div style={{ position: 'absolute', bottom: 10, left: 58, right: 10 }}>
                 <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#fff', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{item.title}</p>
-                <p style={{ margin: '2px 0 0', fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>{item.type === 'movie' ? 'Film' : 'Series'} · {item.year}</p>
+                <p style={{ margin: '2px 0 0', fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>
+                  {item.type === 'movie' ? 'Film' : 'Series'} · {item.year}
+                </p>
               </div>
             </div>
           ))}
@@ -472,126 +654,27 @@ function NetflixShowcase({
   );
 }
 
-// ─── AMAZON PRIME SHOWCASE ────────────────────────────────────────────────────
-function PrimeShowcase({
-  items, loading, onItemClick,
-}: { items: CineItem[]; loading: boolean; onItemClick: (item: CineItem) => void }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const primeItems = items.filter(i => i.tmdb_id % 6 === 1 && (i.backdrop || i.poster)).slice(0, 10);
-  const slide = (dir: 'l' | 'r') => {
-    scrollRef.current?.scrollBy({ left: dir === 'l' ? -290 : 290, behavior: 'smooth' });
-  };
-
-  if (loading || !primeItems.length) return null;
-
-  return (
-    <section style={{ marginBottom: 44, paddingInline: '4vw' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <div style={{
-          width: 30, height: 30, borderRadius: 8,
-          background: 'rgba(0,168,225,0.15)',
-          border: '1px solid rgba(0,168,225,0.3)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <span style={{ fontSize: 11, fontWeight: 900, color: '#00A8E1', fontStyle: 'italic', letterSpacing: '0.04em' }}>P</span>
-        </div>
-        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.text, letterSpacing: '-0.02em' }}>
-          <span style={{ fontStyle: 'italic', color: '#00A8E1' }}>prime</span> Picks
-        </h2>
-      </div>
-      <div style={{ position: 'relative' }}>
-        <div style={{ position: 'absolute', left: -10, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
-          <GlassArrow dir="l" onClick={() => slide('l')} />
-        </div>
-        <div ref={scrollRef} style={{ display: 'flex', gap: 10, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 }}>
-          {primeItems.map(item => (
-            <div
-              key={item.tmdb_id}
-              onClick={() => onItemClick(item)}
-              style={{
-                flexShrink: 0, width: 220, height: 140, borderRadius: 14,
-                overflow: 'hidden', position: 'relative', cursor: 'pointer',
-                background: C.surface, boxShadow: '0 4px 18px rgba(0,0,0,0.45)',
-              }}
-            >
-              <img src={item.backdrop || item.poster} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(7,9,13,0.9) 0%, transparent 55%)' }} />
-              <div style={{ position: 'absolute', bottom: 9, left: 10, right: 10 }}>
-                <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: '#fff', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{item.title}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{ position: 'absolute', right: -10, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
-          <GlassArrow dir="r" onClick={() => slide('r')} />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ─── STREAMING PROVIDERS SELECTOR (Glassmorphism Pill Strip) ─────────────────
+// ─── OTT PROVIDER SELECTOR ────────────────────────────────────────────────────
+// B&W monochrome — all pills same dark glass style, logo in white only
 function OttSelector({
   selected, onSelect, currentTab, onTabChange,
 }: {
   selected: string; onSelect: (id: string) => void;
   currentTab: 'movie' | 'tv'; onTabChange: (tab: 'movie' | 'tv') => void;
 }) {
-  const providers = [
-    {
-      id: 'netflix',
-      logo: (
-        <span style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.06em', color: '#fff', fontFamily: 'Arial Black, Helvetica Neue, sans-serif', lineHeight: 1 }}>N</span>
-      ),
-    },
-    {
-      id: 'prime',
-      logo: (
-        <span style={{ fontSize: 12, fontWeight: 800, color: '#fff', fontStyle: 'italic', letterSpacing: '0.06em', fontFamily: 'inherit' }}>prime</span>
-      ),
-    },
-    {
-      id: 'appletv',
-      logo: (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2, color: '#fff' }}>
-          <Apple size={15} fill="#fff" color="#fff" />
-          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.02em' }}>tv+</span>
-        </div>
-      ),
-    },
-    {
-      id: 'hulu',
-      logo: (
-        <span style={{ fontSize: 13, fontWeight: 900, color: '#fff', letterSpacing: '-0.01em', fontFamily: 'inherit' }}>hulu</span>
-      ),
-    },
-    {
-      id: 'disney',
-      logo: (
-        <span style={{ fontSize: 11, fontWeight: 900, color: '#fff', letterSpacing: '-0.01em', fontFamily: 'inherit' }}>Disney+</span>
-      ),
-    },
-    {
-      id: 'max',
-      logo: (
-        <span style={{ fontSize: 15, fontWeight: 900, color: '#fff', letterSpacing: '-0.04em', fontFamily: 'inherit' }}>max</span>
-      ),
-    },
-  ];
-
   const handleClick = (id: string) => onSelect(selected === id ? 'all' : id);
 
   return (
     <div style={{ paddingInline: '4vw', marginBottom: 36 }}>
       {/* Section header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-        <div style={{ width: 3, height: 16, borderRadius: 2, background: 'rgba(255,255,255,0.6)' }} />
+        <div style={{ width: 3, height: 16, borderRadius: 2, background: 'rgba(255,255,255,0.35)' }} />
         <h2 style={{ margin: 0, fontSize: 11, fontWeight: 700, color: C.textSub, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
           Streaming Providers
         </h2>
       </div>
 
-      {/* Movies / Series global tab — glass pills */}
+      {/* Movies / Series tab */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
         {(['movie', 'tv'] as const).map(tab => {
           const label = tab === 'movie' ? 'Movies' : 'Series';
@@ -628,32 +711,42 @@ function OttSelector({
         )}
       </div>
 
-      {/* Scrollable provider pill strip */}
+      {/* Provider pill strip — all B&W, no brand colors */}
       <div style={{ display: 'flex', gap: 10, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4 }}>
-        {providers.map(p => {
+        {PROVIDERS.map(p => {
           const isSel = selected === p.id;
           return (
             <button
               key={p.id}
               onClick={() => handleClick(p.id)}
+              title={p.name}
               style={{
                 flexShrink: 0,
-                width: 88, height: 56,
+                width: 90, height: 58,
                 borderRadius: 16,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                gap: 5,
                 cursor: 'pointer', fontFamily: 'inherit',
-                background: isSel ? 'rgba(255,255,255,0.11)' : 'rgba(15,19,24,0.5)',
-                border: isSel ? '1.5px solid rgba(255,255,255,0.45)' : '1px solid rgba(248,249,251,0.07)',
+                // B&W — same glass style for all, NO brand colors
+                background: isSel
+                  ? 'rgba(248,249,251,0.12)'
+                  : 'rgba(15,19,24,0.5)',
+                border: isSel
+                  ? '1.5px solid rgba(255,255,255,0.35)'
+                  : `1px solid ${C.border}`,
                 backdropFilter: 'blur(20px)',
                 WebkitBackdropFilter: 'blur(20px)',
                 boxShadow: isSel
-                  ? '0 0 0 1px rgba(255,255,255,0.06), 0 0 24px rgba(255,255,255,0.07), inset 0 1px 0 rgba(255,255,255,0.12)'
+                  ? '0 0 0 1px rgba(255,255,255,0.06), 0 0 24px rgba(255,255,255,0.06), inset 0 1px 0 rgba(255,255,255,0.12)'
                   : 'inset 0 1px 0 rgba(255,255,255,0.04)',
-                transform: isSel ? 'scale(1.04)' : 'scale(1)',
+                transform: isSel ? 'scale(1.05)' : 'scale(1)',
                 transition: 'all 0.22s cubic-bezier(0.2,0.8,0.2,1)',
+                // Grayscale on unselected, full white on selected
+                opacity: isSel ? 1 : 0.65,
               }}
             >
-              {p.logo}
+              <ProviderLogo provider={p} size={22} />
             </button>
           );
         })}
@@ -662,10 +755,48 @@ function OttSelector({
   );
 }
 
+// ─── HERO SLIDE ───────────────────────────────────────────────────────────────
+function HeroSlide({ item, onWatch }: { item: CineItem; onWatch: (item: CineItem) => void }) {
+  const [imgOk, setImgOk] = useState(false);
+  return (
+    <div style={{
+      flexShrink: 0, width: '100%', height: 'min(85vh, 640px)',
+      position: 'relative', overflow: 'hidden', background: C.bg,
+      scrollSnapAlign: 'start', scrollSnapStop: 'always',
+    }}>
+      {item.backdrop && (
+        <img
+          src={item.backdrop} alt=""
+          onLoad={() => setImgOk(true)}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', objectPosition: 'center top',
+            opacity: imgOk ? 1 : 0, transition: 'opacity 0.35s ease',
+          }}
+        />
+      )}
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(7,9,13,1) 0%, rgba(7,9,13,0.65) 40%, rgba(7,9,13,0.05) 100%)' }} />
+      <div style={{ position: 'absolute', bottom: '14%', left: '5%', right: '5%', maxWidth: 540, zIndex: 2 }}>
+        <h1 style={{ margin: '0 0 10px', fontSize: 'clamp(24px, 5vw, 48px)', fontWeight: 800, color: C.text, lineHeight: 1.1, letterSpacing: '-0.025em' }}>{item.title}</h1>
+        <p style={{ margin: '0 0 22px', fontSize: 13, color: C.textSub, lineHeight: 1.65, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.overview}</p>
+        <button
+          onClick={() => onWatch(item)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 7, padding: '11px 26px', borderRadius: 10,
+            background: C.text, border: 'none', fontSize: 13, fontWeight: 700, color: C.bg,
+            cursor: 'pointer', fontFamily: 'inherit', transition: 'opacity 0.15s',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          <Play size={14} fill={C.bg} color={C.bg} /> Watch Now
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── HERO CAROUSEL ────────────────────────────────────────────────────────────
-function Hero({
-  items, onWatch,
-}: { items: CineItem[]; onWatch: (item: CineItem) => void; onDetails: (item: CineItem) => void }) {
+function Hero({ items, onWatch }: { items: CineItem[]; onWatch: (item: CineItem) => void; onDetails: (item: CineItem) => void }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -697,8 +828,6 @@ function Hero({
       <div ref={scrollRef} style={{ display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}>
         {items.map(item => <HeroSlide key={item.tmdb_id} item={item} onWatch={onWatch} />)}
       </div>
-
-      {/* Enhanced dot indicators */}
       <div style={{
         position: 'absolute', bottom: '6%', left: '50%', transform: 'translateX(-50%)',
         display: 'flex', gap: 5, zIndex: 2,
@@ -720,41 +849,6 @@ function Hero({
             }}
           />
         ))}
-      </div>
-    </div>
-  );
-}
-
-function HeroSlide({ item, onWatch }: { item: CineItem; onWatch: (item: CineItem) => void }) {
-  const [imgOk, setImgOk] = useState(false);
-  return (
-    <div style={{
-      flexShrink: 0, width: '100%', height: 'min(85vh, 640px)',
-      position: 'relative', overflow: 'hidden', background: C.bg,
-      scrollSnapAlign: 'start', scrollSnapStop: 'always',
-    }}>
-      {item.backdrop && (
-        <img
-          src={item.backdrop} alt=""
-          onLoad={() => setImgOk(true)}
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', opacity: imgOk ? 1 : 0, transition: 'opacity 0.35s ease' }}
-        />
-      )}
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(7,9,13,1) 0%, rgba(7,9,13,0.65) 40%, rgba(7,9,13,0.05) 100%)' }} />
-      <div style={{ position: 'absolute', bottom: '14%', left: '5%', right: '5%', maxWidth: 540, zIndex: 2 }}>
-        <h1 style={{ margin: '0 0 10px', fontSize: 'clamp(24px, 5vw, 48px)', fontWeight: 800, color: C.text, lineHeight: 1.1, letterSpacing: '-0.025em' }}>{item.title}</h1>
-        <p style={{ margin: '0 0 22px', fontSize: 13, color: C.textSub, lineHeight: 1.65, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.overview}</p>
-        <button
-          onClick={() => onWatch(item)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 7, padding: '11px 26px', borderRadius: 10,
-            background: C.text, border: 'none', fontSize: 13, fontWeight: 700, color: C.bg,
-            cursor: 'pointer', fontFamily: 'inherit', transition: 'opacity 0.15s',
-            WebkitTapHighlightColor: 'transparent',
-          }}
-        >
-          <Play size={14} fill={C.bg} color={C.bg} /> Watch Now
-        </button>
       </div>
     </div>
   );
@@ -888,6 +982,7 @@ function ContinueWatchingRail({ onPlay, onRemove }: {
     e.stopPropagation();
     removeContinueWatchingEntry(tmdbId);
     setEntries(getContinueWatching());
+    onRemove(tmdbId);
   };
 
   if (!entries.length) return null;
@@ -941,7 +1036,183 @@ function ContinueWatchingRail({ onPlay, onRemove }: {
   );
 }
 
-// ─── FLOATING GLASS NAV ───────────────────────────────────────────────────────
+// ─── DISCLAIMER SECTION ───────────────────────────────────────────────────────
+function DisclaimerSection() {
+  return (
+    <section style={{
+      marginInline: '4vw',
+      marginBottom: 40,
+      borderRadius: 18,
+      padding: '28px 28px 24px',
+      background: C.surface,
+      border: `1px solid ${C.border}`,
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      {/* Subtle noise texture via gradient */}
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: 18,
+        background: 'radial-gradient(ellipse at 20% 50%, rgba(248,249,251,0.015) 0%, transparent 70%)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+        <div style={{
+          width: 34, height: 34, borderRadius: 10,
+          background: C.elevated, border: `1px solid ${C.border}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+          <AlertCircle size={16} color={C.textSub} />
+        </div>
+        <div>
+          <h3 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: C.text, letterSpacing: '-0.01em' }}>
+            Important Disclaimer
+          </h3>
+          <p style={{ margin: 0, fontSize: 12, color: C.textSub, marginTop: 1 }}>◝(ᵔᵕᵔ)◜</p>
+        </div>
+      </div>
+
+      {/* Body */}
+      <p style={{
+        margin: '0 0 20px', fontSize: 12, color: C.textSub, lineHeight: 1.75,
+        fontWeight: 400,
+      }}>
+        Cineverse operates as a content aggregator and does not host any media files on our servers.
+        All content is sourced from third-party providers and embedded services. For any copyright
+        concerns or DMCA takedown requests, please contact the respective content providers directly.
+      </p>
+
+      {/* Badges */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {[
+          { icon: <Shield size={11} />, label: 'Third-party Content' },
+          { icon: <Film size={11} />, label: 'No File Hosting' },
+        ].map(badge => (
+          <div key={badge.label} style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '5px 12px', borderRadius: 99,
+            background: C.elevated, border: `1px solid ${C.border}`,
+            fontSize: 11, fontWeight: 600, color: C.textSub,
+          }}>
+            <span style={{ color: C.textSub }}>{badge.icon}</span>
+            {badge.label}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ─── FLOATING BOTTOM DOCK ─────────────────────────────────────────────────────
+// Appears after scrolling 200px — centered pill with navigation icons
+function FloatingBottomDock({ onSearchOpen }: { onSearchOpen: () => void }) {
+  const navigate = useNavigate();
+  const [visible, setVisible] = useState(false);
+  const [active, setActive] = useState<'home' | 'search' | 'browse'>('home');
+
+  useEffect(() => {
+    const fn = () => setVisible(window.scrollY > 200);
+    window.addEventListener('scroll', fn, { passive: true });
+    return () => window.removeEventListener('scroll', fn);
+  }, []);
+
+  return (
+    <div style={{
+      position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)',
+      zIndex: 60,
+      // Animate in/out
+      opacity: visible ? 1 : 0,
+      pointerEvents: visible ? 'auto' : 'none',
+      transition: 'opacity 0.3s cubic-bezier(0.4,0,0.2,1), transform 0.3s cubic-bezier(0.4,0,0.2,1)',
+      // Slightly slide up when appearing
+      transform: `translateX(-50%) translateY(${visible ? 0 : 12}px)`,
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 4,
+        padding: '10px 14px',
+        borderRadius: 99,
+        background: 'rgba(15,19,24,0.82)',
+        backdropFilter: 'blur(32px)',
+        WebkitBackdropFilter: 'blur(32px)',
+        border: '1px solid rgba(255,255,255,0.13)',
+        boxShadow: '0 12px 50px rgba(0,0,0,0.65), 0 2px 0 rgba(255,255,255,0.04) inset, 0 -1px 0 rgba(0,0,0,0.3) inset',
+      }}>
+        {/* Home */}
+        <DockButton
+          icon={<Home size={17} />}
+          label="Home"
+          active={active === 'home'}
+          onClick={() => { setActive('home'); navigate('/'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+        />
+
+        {/* Divider */}
+        <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.08)', marginInline: 4 }} />
+
+        {/* Logo wordmark center */}
+        <button
+          onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: '4px 10px', borderRadius: 99,
+            fontFamily: 'inherit',
+          }}
+        >
+          <span style={{ fontSize: 13, fontWeight: 900, color: C.text, letterSpacing: '-0.05em', lineHeight: 1 }}>
+            Cine<span style={{ color: C.textSub, fontWeight: 300 }}>verse</span>
+          </span>
+        </button>
+
+        {/* Divider */}
+        <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.08)', marginInline: 4 }} />
+
+        {/* Search */}
+        <DockButton
+          icon={<Search size={17} />}
+          label="Search"
+          active={active === 'search'}
+          onClick={() => { setActive('search'); onSearchOpen(); }}
+        />
+
+        {/* Browse */}
+        <DockButton
+          icon={<Compass size={17} />}
+          label="Browse"
+          active={active === 'browse'}
+          onClick={() => { setActive('browse'); navigate('/browse'); }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function DockButton({
+  icon, label, active, onClick,
+}: { icon: React.ReactNode; label: string; active: boolean; onClick: () => void }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      title={label}
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+        padding: '6px 12px', borderRadius: 99,
+        background: active || hov ? 'rgba(248,249,251,0.1)' : 'transparent',
+        border: 'none', cursor: 'pointer', color: active ? C.text : C.textSub,
+        transition: 'all 0.18s ease', fontFamily: 'inherit',
+        minWidth: 48,
+      }}
+    >
+      {icon}
+      <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em', lineHeight: 1 }}>{label}</span>
+    </button>
+  );
+}
+
+// ─── FLOATING GLASS NAVBAR ────────────────────────────────────────────────────
+// True floating — margin from all edges, rounded rectangle, glassmorphism
 function Nav({ onSearchOpen }: { onSearchOpen: () => void }) {
   const navigate = useNavigate();
   const [scrollY, setScrollY] = useState(0);
@@ -952,44 +1223,82 @@ function Nav({ onSearchOpen }: { onSearchOpen: () => void }) {
     return () => window.removeEventListener('scroll', fn);
   }, []);
 
-  // opacity ramps from 0.28 → 0.88 over first 180px of scroll
-  const bg = `rgba(7,9,13,${Math.min(0.28 + (scrollY / 180) * 0.6, 0.88)})`;
-  const bdr = `rgba(248,249,251,${Math.min(0.03 + (scrollY / 180) * 0.07, 0.1)})`;
+  const atTop = scrollY < 20;
 
   return (
     <nav style={{
-      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
-      padding: '0 4vw', height: 60,
-      background: bg,
-      borderBottom: `1px solid ${bdr}`,
-      backdropFilter: 'blur(28px)',
-      WebkitBackdropFilter: 'blur(28px)',
-      transition: 'background 0.25s ease, border-color 0.25s ease',
+      // FLOATING — not full width, margins on all sides
+      position: 'fixed',
+      top: atTop ? 14 : 10,
+      left: atTop ? '4vw' : '3vw',
+      right: atTop ? '4vw' : '3vw',
+      zIndex: 50,
+
+      // Rounded rectangle
+      borderRadius: 18,
+
+      height: atTop ? 58 : 52,
+      padding: '0 16px',
+
+      // Glassmorphism
+      background: atTop
+        ? 'rgba(15,19,24,0.55)'
+        : 'rgba(7,9,13,0.82)',
+      backdropFilter: 'blur(32px)',
+      WebkitBackdropFilter: 'blur(32px)',
+      border: `1px solid ${atTop ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.1)'}`,
+      boxShadow: atTop
+        ? '0 4px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06)'
+        : '0 8px 40px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07)',
+
+      transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
       display: 'flex', alignItems: 'center', gap: 12,
-      boxShadow: scrollY > 10 ? '0 2px 40px rgba(0,0,0,0.35)' : 'none',
     }}>
       {/* Logo */}
       <button
         onClick={() => navigate('/')}
         style={{
           background: 'none', border: 'none', cursor: 'pointer',
-          fontSize: 18, fontWeight: 900, color: C.text, letterSpacing: '-0.05em',
+          fontSize: 17, fontWeight: 900, color: C.text, letterSpacing: '-0.05em',
           padding: 0, flex: 1, textAlign: 'left', fontFamily: 'inherit',
-          WebkitTapHighlightColor: 'transparent',
+          WebkitTapHighlightColor: 'transparent', lineHeight: 1,
         }}
       >
         Cine<span style={{ color: C.textSub, fontWeight: 300 }}>verse</span>
       </button>
 
-      {/* Search — glass button */}
+      {/* Nav links (desktop) */}
+      <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+        {['Movies', 'Series', 'Trending'].map(link => (
+          <button
+            key={link}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer', padding: '6px 10px',
+              fontSize: 12, fontWeight: 600, color: C.textSub,
+              borderRadius: 8, transition: 'color 0.15s, background 0.15s',
+              fontFamily: 'inherit',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.color = C.text;
+              (e.currentTarget as HTMLElement).style.background = 'rgba(248,249,251,0.07)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.color = C.textSub;
+              (e.currentTarget as HTMLElement).style.background = 'transparent';
+            }}
+          >{link}</button>
+        ))}
+      </div>
+
+      {/* Search button */}
       <button
         onClick={onSearchOpen}
         aria-label="Search"
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          width: 40, height: 40, borderRadius: 12,
+          width: 36, height: 36, borderRadius: 10,
           background: 'rgba(248,249,251,0.07)',
-          border: '1px solid rgba(255,255,255,0.11)',
+          border: '1px solid rgba(255,255,255,0.1)',
           backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
           color: C.text, cursor: 'pointer',
           boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)',
@@ -997,7 +1306,7 @@ function Nav({ onSearchOpen }: { onSearchOpen: () => void }) {
           WebkitTapHighlightColor: 'transparent',
         }}
       >
-        <Search size={16} />
+        <Search size={15} />
       </button>
     </nav>
   );
@@ -1010,6 +1319,7 @@ export default function CineverseHome() {
   const [selectedOtt, setSelectedOtt] = useState('all');
   const [currentOttTab, setCurrentOttTab] = useState<'movie' | 'tv'>('movie');
 
+  // Base content
   const [heroItems,      setHeroItems]      = useState<CineItem[]>([]);
   const [trendingMovies, setTrendingMovies] = useState<CineItem[]>([]);
   const [trendingShows,  setTrendingShows]  = useState<CineItem[]>([]);
@@ -1026,34 +1336,23 @@ export default function CineverseHome() {
   const [loadingTopR,    setLoadingTopR]    = useState(true);
   const [loadingUpcoming,setLoadingUpcoming]= useState(true);
 
+  // Provider-specific fetched content (re-fetched on provider change)
+  const [providerMovies, setProviderMovies] = useState<CineItem[]>([]);
+  const [providerShows,  setProviderShows]  = useState<CineItem[]>([]);
+  const [loadingProvider, setLoadingProvider] = useState(false);
+
   const [cwKey, setCwKey] = useState(0);
 
-  // Computed animation/cartoon items from existing data
   const animationMovies = popularMovies.filter(i => i.genres.includes('Animation') || i.genres.includes('Family')).slice(0, 20);
   const animationShows  = popularShows.filter(i => i.genres.includes('Animation') || i.genres.includes('Kids')).slice(0, 20);
   const allMovies       = [...trendingMovies, ...popularMovies];
+  const netflixProvider = PROVIDERS.find(p => p.id === 'netflix')!;
+  const primeProvider   = PROVIDERS.find(p => p.id === 'prime')!;
 
-  const goPlay = useCallback((itemOrEntry: CineItem | ContinueWatchingEntry) => {
-    const isCwEntry = 'item' in itemOrEntry && 'episode' in itemOrEntry;
-    if (isCwEntry) {
-      const entry = itemOrEntry as ContinueWatchingEntry;
-      navigate(`/player/${entry.item.type === 'movie' ? 'movie' : entry.item.isAnime ? 'anime' : 'show'}/${entry.item.tmdb_id}`, {
-        state: { item: entry.item, resumeSeason: entry.season, resumeEpisode: entry.episode },
-      });
-    } else {
-      const item = itemOrEntry as CineItem;
-      navigate(`/player/${item.type === 'movie' ? 'movie' : 'show'}/${item.tmdb_id}`, { state: { item } });
-    }
-  }, [navigate]);
-
-  const goPlayItem = useCallback((item: CineItem) => goPlay(item), [goPlay]);
-  const goDetails  = useCallback((item: CineItem) => {
-    navigate(`/details/${item.type}/${item.tmdb_id}`, { state: { item } });
-  }, [navigate]);
-
+  // ── Base data fetch (on mount) ──────────────────────────────────────────────
   useEffect(() => {
     tmdb.getTrending('movie').then(d => {
-      const items = normPage(d, 'movie', 6).filter(i => i.backdrop);
+      const items = normPage(d, 'movie', 6).filter((i: CineItem) => i.backdrop);
       setHeroItems(items); setLoadingHero(false);
     }).catch(() => setLoadingHero(false));
 
@@ -1082,8 +1381,69 @@ export default function CineverseHome() {
     }).catch(() => setLoadingUpcoming(false));
   }, []);
 
+  // ── Provider fetch — real TMDB discover per provider ───────────────────────
+  useEffect(() => {
+    if (selectedOtt === 'all') {
+      setProviderMovies([]);
+      setProviderShows([]);
+      return;
+    }
+
+    const provider = PROVIDERS.find(p => p.id === selectedOtt);
+    if (!provider) return;
+
+    setLoadingProvider(true);
+
+    Promise.all([
+      tmdbDiscover('movie', provider.tmdbId),
+      tmdbDiscover('tv',    provider.tmdbId),
+    ]).then(([moviesData, showsData]) => {
+      // Use real discover data if available, else hash-filter fallback
+      const movies = moviesData
+        ? normPage(moviesData, 'movie', 20)
+        : filterItemsByOtt([...trendingMovies, ...popularMovies], selectedOtt, 'movie');
+
+      const shows = showsData
+        ? normPage(showsData, 'tv', 20)
+        : filterItemsByOtt([...trendingShows, ...popularShows], selectedOtt, 'tv');
+
+      setProviderMovies(movies);
+      setProviderShows(shows);
+    }).finally(() => setLoadingProvider(false));
+  }, [selectedOtt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const goPlay = useCallback((itemOrEntry: CineItem | ContinueWatchingEntry) => {
+    const isCwEntry = 'item' in itemOrEntry && 'episode' in itemOrEntry;
+    if (isCwEntry) {
+      const entry = itemOrEntry as ContinueWatchingEntry;
+      navigate(`/player/${entry.item.type === 'movie' ? 'movie' : entry.item.isAnime ? 'anime' : 'show'}/${entry.item.tmdb_id}`, {
+        state: { item: entry.item, resumeSeason: entry.season, resumeEpisode: entry.episode },
+      });
+    } else {
+      const item = itemOrEntry as CineItem;
+      navigate(`/player/${item.type === 'movie' ? 'movie' : 'show'}/${item.tmdb_id}`, { state: { item } });
+    }
+  }, [navigate]);
+
+  const goPlayItem = useCallback((item: CineItem) => goPlay(item), [goPlay]);
+  const goDetails  = useCallback((item: CineItem) => {
+    navigate(`/details/${item.type}/${item.tmdb_id}`, { state: { item } });
+  }, [navigate]);
+
+  // Provider display content — use fetched data or fallback
+  const displayMovies = selectedOtt !== 'all' && providerMovies.length > 0
+    ? providerMovies
+    : currentOttTab === 'movie'
+      ? trendingMovies
+      : trendingShows;
+
+  const displayShows = selectedOtt !== 'all' && providerShows.length > 0
+    ? providerShows
+    : popularShows;
+
   return (
     <div style={{ minHeight: '100vh', background: C.bg, fontFamily: 'Inter, system-ui, sans-serif', overflowX: 'hidden' }}>
+
       {/* ── Floating Glass Navbar ── */}
       <Nav onSearchOpen={() => setSearchOpen(true)} />
 
@@ -1093,7 +1453,8 @@ export default function CineverseHome() {
         : <Hero items={heroItems} onWatch={goPlayItem} onDetails={goDetails} />
       }
 
-      <div style={{ paddingTop: 32, paddingBottom: 64 }}>
+      <div style={{ paddingTop: 32, paddingBottom: 80 }}>
+
         {/* ── 2. Continue Watching ── */}
         <ContinueWatchingRail key={cwKey} onPlay={goPlay} onRemove={() => setCwKey(k => k + 1)} />
 
@@ -1103,13 +1464,23 @@ export default function CineverseHome() {
         {/* ── 4. Top 10 Series Banner ── */}
         <TopTenRail title="Series" items={trendingShows} loading={loadingTrendS} onItemClick={goPlayItem} />
 
-        {/* ── 5. Netflix Most Watched Showcase ── (between trending & providers) */}
-        <NetflixShowcase items={allMovies} loading={loadingTrendM} onItemClick={goPlayItem} />
+        {/* ── 5. Netflix Most Watched — MediaCard (in between, NOT TopTenRail) ── */}
+        <ProviderShowcase
+          provider={netflixProvider}
+          items={allMovies}
+          loading={loadingTrendM}
+          onItemClick={goPlayItem}
+        />
 
-        {/* ── 6. Amazon Prime Picks ── */}
-        <PrimeShowcase items={[...trendingMovies, ...popularMovies]} loading={loadingTrendM} onItemClick={goPlayItem} />
+        {/* ── 6. Prime Video Picks — MediaCard (in between) ── */}
+        <ProviderShowcase
+          provider={primeProvider}
+          items={[...trendingMovies, ...popularMovies]}
+          loading={loadingTrendM}
+          onItemClick={goPlayItem}
+        />
 
-        {/* ── 7. Provider Selector + Movies/Series Tab ── */}
+        {/* ── 7. Provider Selector + Tab ── */}
         <OttSelector
           selected={selectedOtt}
           onSelect={id => setSelectedOtt(id)}
@@ -1117,15 +1488,21 @@ export default function CineverseHome() {
           onTabChange={tab => setCurrentOttTab(tab)}
         />
 
-        {/* ── 8. Content Rails — Tab filter works even on "all" provider ── */}
-        {selectedOtt !== 'all' ? (
-          /* Provider-specific filtered content */
+        {/* ── 8. Provider Content Rails ── */}
+        {loadingProvider ? (
+          /* Loading state when provider changes */
+          <>
+            <div style={{ height: 220, marginInline: '4vw', borderRadius: 14, marginBottom: 40 }} className="cv-sk" />
+            <div style={{ height: 220, marginInline: '4vw', borderRadius: 14, marginBottom: 40 }} className="cv-sk" />
+          </>
+        ) : selectedOtt !== 'all' ? (
+          /* Provider-specific content — real fetched data */
           <>
             <Rail
-              title={`Trending on ${selectedOtt.charAt(0).toUpperCase() + selectedOtt.slice(1)}`}
+              title={`Trending on ${PROVIDERS.find(p => p.id === selectedOtt)?.name || selectedOtt}`}
               icon={<TrendingUp size={14} />}
-              items={filterItemsByOtt(currentOttTab === 'movie' ? trendingMovies : trendingShows, selectedOtt, currentOttTab)}
-              loading={currentOttTab === 'movie' ? loadingTrendM : loadingTrendS}
+              items={currentOttTab === 'movie' ? providerMovies : providerShows}
+              loading={false}
               onItemClick={goPlayItem}
             />
             <Rail
@@ -1138,32 +1515,33 @@ export default function CineverseHome() {
             <Rail
               title="Popular Titles"
               icon={<Film size={14} />}
-              items={filterItemsByOtt(currentOttTab === 'movie' ? popularMovies : popularShows, selectedOtt, currentOttTab)}
-              loading={currentOttTab === 'movie' ? loadingPopM : loadingPopS}
+              items={currentOttTab === 'movie' ? providerMovies.slice(10) : providerShows.slice(10)}
+              loading={false}
               onItemClick={goPlayItem}
             />
           </>
         ) : currentOttTab === 'movie' ? (
-          /* Movies tab — all providers */
           <>
-            <Rail title="Trending Movies"    icon={<TrendingUp size={14} />} items={trendingMovies}  loading={loadingTrendM}   onItemClick={goPlayItem} />
-            <Rail title="Popular Movies"     icon={<Film size={14} />}       items={popularMovies}   loading={loadingPopM}     onItemClick={goPlayItem} />
-            <Rail title="Top Rated"          icon={<Star size={14} />}       items={topRated}        loading={loadingTopR}     onItemClick={goPlayItem} />
-            <Rail title="Coming Soon"        icon={<Film size={14} />}       items={upcoming}        loading={loadingUpcoming} onItemClick={goPlayItem} />
+            <Rail title="Trending Movies"     icon={<TrendingUp size={14} />} items={trendingMovies}  loading={loadingTrendM}   onItemClick={goPlayItem} />
+            <Rail title="Popular Movies"      icon={<Film size={14} />}       items={popularMovies}   loading={loadingPopM}     onItemClick={goPlayItem} />
+            <Rail title="Top Rated"           icon={<Star size={14} />}       items={topRated}        loading={loadingTopR}     onItemClick={goPlayItem} />
+            <Rail title="Coming Soon"         icon={<Film size={14} />}       items={upcoming}        loading={loadingUpcoming} onItemClick={goPlayItem} />
             {animationMovies.length > 0 && (
-              <Rail title="Animation & Cartoons" icon={<span style={{ fontSize: 14 }}>🎨</span>} items={animationMovies} loading={loadingPopM} onItemClick={goPlayItem} />
+              <Rail title="Animation & Cartoons" icon={<Tv size={14} />}     items={animationMovies} loading={loadingPopM}     onItemClick={goPlayItem} />
             )}
           </>
         ) : (
-          /* Series tab — all providers */
           <>
             <Rail title="Trending Series"    icon={<TrendingUp size={14} />} items={trendingShows}   loading={loadingTrendS}  onItemClick={goPlayItem} />
             <Rail title="Popular Series"     icon={<Tv size={14} />}         items={popularShows}    loading={loadingPopS}    onItemClick={goPlayItem} />
             {animationShows.length > 0 && (
-              <Rail title="Animated Series"  icon={<span style={{ fontSize: 14 }}>🎨</span>} items={animationShows}  loading={loadingPopS}    onItemClick={goPlayItem} />
+              <Rail title="Animated Series"  icon={<Tv size={14} />}         items={animationShows}  loading={loadingPopS}    onItemClick={goPlayItem} />
             )}
           </>
         )}
+
+        {/* ── 9. Disclaimer Section ── */}
+        <DisclaimerSection />
       </div>
 
       {/* ── Footer ── */}
@@ -1177,11 +1555,11 @@ export default function CineverseHome() {
         <div style={{ display: 'flex', gap: 10 }}>
           {[
             {
-              name: 'Telegram', href: 'https://t.me/Cineverseofc', fill: '#27A7E7',
+              name: 'Telegram', href: 'https://t.me/Cineverseofc', fill: '#fff',
               path: 'M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.568 8.16-1.78 8.395c-.134.6-.485.748-.984.466l-2.72-2.004-1.312 1.264c-.145.145-.267.267-.546.267l.195-2.79 5.08-4.59c.221-.196-.048-.305-.34-.109l-6.276 3.95-2.704-.845c-.587-.183-.598-.587.122-.87l10.566-4.07c.49-.183.918.109.76.844z',
             },
             {
-              name: 'Instagram', href: 'https://instagram.com/cineverseofc', fill: '#E1306C',
+              name: 'Instagram', href: 'https://instagram.com/cineverseofc', fill: '#fff',
               path: 'M12 2c2.717 0 3.056.01 4.122.06 1.065.05 1.79.217 2.428.465.66.256 1.216.6 1.772 1.153.553.553.9 1.11 1.153 1.772.247.637.415 1.363.465 2.428.05 1.066.06 1.405.06 4.122s-.01 3.056-.06 4.122c-.05 1.065-.218 1.79-.465 2.428a4.9 4.9 0 0 1-1.153 1.772c-.553.553-1.11.9-1.772 1.153-.637.247-1.363.415-2.428.465-1.066.05-1.405.06-4.122.06s-3.056-.01-4.122-.06c-1.065-.05-1.79-.218-2.428-.465a4.9 4.9 0 0 1-1.772-1.153 4.9 4.9 0 0 1-1.153-1.772c-.247-.637-.415-1.363-.465-2.428C2.01 15.056 2 14.717 2 12s.01-3.056.06-4.122c.05-1.065.218-1.79.465-2.428a4.9 4.9 0 0 1 1.153-1.772A4.9 4.9 0 0 1 5.45 2.525c.637-.247 1.363-.415 2.428-.465C8.944 2.01 9.283 2 12 2zm0 5.838a4.162 4.162 0 1 0 0 8.324 4.162 4.162 0 0 0 0-8.324zm0 1.802a2.36 2.36 0 1 1 0 4.72 2.36 2.36 0 0 1 0-4.72zm4.406-3.44a.97.97 0 1 0 0 1.94.97.97 0 0 0 0-1.94z',
             },
           ].map(s => (
@@ -1197,6 +1575,9 @@ export default function CineverseHome() {
         </p>
       </footer>
 
+      {/* ── Floating Bottom Dock ── (appears on scroll) */}
+      <FloatingBottomDock onSearchOpen={() => setSearchOpen(true)} />
+
       {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} onSelect={goPlay} />}
 
       <style>{`
@@ -1209,7 +1590,7 @@ export default function CineverseHome() {
           100% { background-position:  200% 0; }
         }
         .cv-sk {
-          background: linear-gradient(90deg, ${C.surface} 25%, ${C.elevated} 50%, ${C.surface} 75%);
+          background: linear-gradient(90deg, #0F1318 25%, #181D24 50%, #0F1318 75%);
           background-size: 200% 100%;
           animation: cv-shimmer 1.6s ease-in-out infinite;
         }
