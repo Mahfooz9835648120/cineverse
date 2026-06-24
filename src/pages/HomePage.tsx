@@ -1039,87 +1039,110 @@ const ProviderButton = memo(function ProviderButton({
   const [pressed, setPressed] = useState(false);
 
   return (
-    <button
-      onClick={onClick}
-      onPointerDown={() => setPressed(true)}
-      onPointerUp={() => setPressed(false)}
-      onPointerLeave={() => setPressed(false)}
-      title={provider.name}
-      style={{
-        flexShrink: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 10,
-        cursor: 'pointer',
-        background: selected ? 'rgba(255,255,255,0.08)' : 'rgba(15,19,24,0.9)',
-        border: `1.5px solid ${selected ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.07)'}`,
-        borderRadius: 18,
-        padding: '12px 10px',
-        width: 86,
-        height: 84,
-        fontFamily: 'inherit',
-        WebkitTapHighlightColor: 'transparent',
-        // 3D raised: top rim + bottom shadow
-        boxShadow: selected
-          ? `0 0 0 1.5px ${brandColor}55, 0 5px 0 rgba(0,0,0,0.55), 0 8px 24px ${brandColor}33`
-          : '0 4px 0 rgba(0,0,0,0.5), 0 6px 18px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)',
-        transform: pressed
-          ? 'scale(0.94) translateY(3px)'
-          : selected
-            ? 'translateY(-3px)'
-            : 'translateY(0)',
-        transition: 'transform 0.13s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease',
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Top rim shine */}
-      <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0, height: 1,
-        background: 'rgba(255,255,255,0.12)',
-        borderRadius: '18px 18px 0 0',
-        pointerEvents: 'none',
-      }} />
+    <div style={{
+      flexShrink: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 8,
+    }}>
+      {/* Square tile — logo fills it entirely */}
+      <button
+        onClick={onClick}
+        onPointerDown={() => setPressed(true)}
+        onPointerUp={() => setPressed(false)}
+        onPointerLeave={() => setPressed(false)}
+        title={provider.name}
+        style={{
+          flexShrink: 0,
+          width: 72,
+          height: 72,
+          borderRadius: 18,
+          padding: 0,
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          WebkitTapHighlightColor: 'transparent',
+          position: 'relative',
+          overflow: 'hidden',
+          background: '#111418',
+          border: `1.5px solid ${selected ? brandColor + '88' : 'rgba(255,255,255,0.08)'}`,
+          boxShadow: selected
+            ? `0 0 0 1.5px ${brandColor}44, 0 5px 0 rgba(0,0,0,0.55), 0 10px 28px ${brandColor}28`
+            : '0 4px 0 rgba(0,0,0,0.5), 0 6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.07)',
+          transform: pressed
+            ? 'scale(0.91) translateY(3px)'
+            : selected
+              ? 'translateY(-3px) scale(1.04)'
+              : 'translateY(0) scale(1)',
+          transition: 'transform 0.14s cubic-bezier(0.2,0.8,0.2,1), box-shadow 0.18s ease, border-color 0.18s ease',
+        }}
+      >
+        {/* Full-fill logo image */}
+        <img
+          src={`/logos/${provider.id}.png`}
+          alt={provider.name}
+          draggable={false}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            padding: 12,
+            filter: selected
+              ? 'grayscale(1) brightness(10)'
+              : 'grayscale(1) brightness(6)',
+            opacity: selected ? 1 : 0.65,
+            transition: 'opacity 0.18s ease, filter 0.18s ease',
+            userSelect: 'none',
+          }}
+        />
 
-      {/* PNG logo */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        width: 48, height: 26,
-        opacity: selected ? 1 : 0.5,
-        transition: 'opacity 0.18s ease',
-      }}>
-        <ProviderLogo provider={provider} width={48} height={26} />
-      </div>
+        {/* Top rim shine */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 1,
+          background: 'rgba(255,255,255,0.13)',
+          borderRadius: '18px 18px 0 0',
+          pointerEvents: 'none',
+        }} />
 
-      {/* Platform name */}
+        {/* Selected brand glow overlay */}
+        {selected && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: `radial-gradient(ellipse at 50% 110%, ${brandColor}18 0%, transparent 70%)`,
+            pointerEvents: 'none',
+          }} />
+        )}
+
+        {/* Selected dot — bottom center */}
+        {selected && (
+          <div style={{
+            position: 'absolute', bottom: 5, left: '50%', transform: 'translateX(-50%)',
+            width: 4, height: 4, borderRadius: '50%',
+            background: 'rgba(255,255,255,0.9)',
+          }} />
+        )}
+      </button>
+
+      {/* Platform name — below the tile */}
       <span style={{
-        fontSize: 9,
-        fontWeight: 600,
+        fontSize: 10,
+        fontWeight: selected ? 700 : 500,
         color: selected ? C.text : C.textSub,
-        letterSpacing: '0.03em',
+        letterSpacing: '0.01em',
         textAlign: 'center',
         lineHeight: 1.2,
-        maxWidth: 70,
+        maxWidth: 72,
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
-        transition: 'color 0.18s ease',
+        transition: 'color 0.18s ease, font-weight 0.18s ease',
         fontFamily: '"Inter", system-ui, sans-serif',
       }}>
         {provider.name}
       </span>
-
-      {/* Active dot indicator */}
-      {selected && (
-        <div style={{
-          width: 4, height: 4, borderRadius: '50%',
-          background: 'rgba(255,255,255,0.8)',
-          flexShrink: 0,
-        }} />
-      )}
-    </button>
+    </div>
   );
 });
 
