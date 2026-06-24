@@ -1,7 +1,8 @@
 // src/pages/CineverseHome.tsx
-// Cineverse — Home Page — GOD MODE REWRITE v4
+// Cineverse — Home Page — GOD MODE REWRITE v5
 // ✦ Floating pill glassmorphic navbar (rounded rect, margins, true glass)
-// ✦ Real TMDB provider logos — B&W grayscale monochrome
+// ✦ Local PNG provider logos from /public/logos/ — B&W via CSS filter
+// ✦ Provider pills show logo + platform name text
 // ✦ TMDB discover fetch per provider (real loading state)
 // ✦ Netflix + Prime Top 10 as MediaCards (landscape, between rails)
 // ✦ 3D rounded-rect TopTen cards with blur-on-swipe + shadow glow
@@ -88,14 +89,21 @@ export interface CineItem {
 }
 
 // ─── PROVIDER CONFIG ──────────────────────────────────────────────────────────
-// Inline SVG paths — clean B&W, crisp at any size, no image fetching
 interface ProviderConfig {
   id: string;
   tmdbId: number;
   name: string;
-  // SVG viewBox and path(s) for the brand wordmark/logo
-  svg: { viewBox: string; paths: { d: string; fill?: string; fillRule?: 'evenodd' | 'nonzero' }[] };
 }
+
+const PROVIDERS: ProviderConfig[] = [
+  { id: 'netflix',     tmdbId: 8,    name: 'Netflix'     },
+  { id: 'prime',       tmdbId: 9,    name: 'Prime Video' },
+  { id: 'appletv',     tmdbId: 350,  name: 'Apple TV+'   },
+  { id: 'hulu',        tmdbId: 15,   name: 'Hulu'        },
+  { id: 'disney',      tmdbId: 337,  name: 'Disney+'     },
+  { id: 'max',         tmdbId: 1899, name: 'Max'         },
+  { id: 'crunchyroll', tmdbId: 283,  name: 'Crunchyroll' },
+];
 
 // Brand accent colours — used for border glow on selection
 const PROVIDER_COLORS: Record<string, string> = {
@@ -108,79 +116,28 @@ const PROVIDER_COLORS: Record<string, string> = {
   crunchyroll: '#F47521',
 };
 
-// Inline B&W SVG wordmarks — traced from official logos, rendered white on dark bg
-const PROVIDER_SVGS: Record<string, { viewBox: string; paths: { d: string }[] }> = {
-  netflix: {
-    viewBox: '0 0 111 30',
-    paths: [{
-      d: 'M105.06 28.6 94.4 0h-9.2l15.06 30h4.8zm-93.8 0L0 0h4.5l9.2 23.6L23.3 0h4.6L17.5 28.6 21.8 30 32.5 0h9.2L27.06 30h-4.8l-1.8-4.7-1.8 4.7h-4.8l-.3-.7zm27.5.7V0h4.5v29.3h-4.5zm11.8 0V0h4.5v25.6h12.3V30H50.56zm18.7 0V0h17.5v4.4H73.76v7.8h12.3v4.4H73.76v9.1h12.3V30h-17.5zm19.2 0V0h4.5l12.3 19.8V0h4.5v30h-4.5L93.46 10.2V30h-4.5z',
-    }],
-  },
-  prime: {
-    viewBox: '0 0 120 34',
-    paths: [{
-      d: 'M7.5 12.3h4.8c2.8 0 4.2 1.3 4.2 3.6 0 2.4-1.5 3.8-4.3 3.8H9.8v4.8H7.5V12.3zm2.3 5.6h2.3c1.4 0 2.1-.6 2.1-2 0-1.3-.7-1.9-2.1-1.9H9.8v3.9zm9.6-5.6h4.5c2.7 0 4.1 1.2 4.1 3.3 0 1.7-.9 2.8-2.4 3.1l2.7 4.8h-2.6l-2.4-4.5h-1.6v4.5h-2.3V12.3zm2.3 4.9h2c1.3 0 2-.6 2-1.7 0-1.1-.7-1.7-2-1.7h-2v3.4zm9.7 7.3V12.3h2.3v12.2h-2.3zm5.5 0V12.3h3.2l2.9 8.4 2.9-8.4h3.2v12.2h-2.2v-8.8l-3.1 8.8h-1.6l-3.1-8.8v8.8H36.9zm14.8 0V12.3h7.7v1.9h-5.4v3.2h5.1v1.9h-5.1v3.4h5.5v1.8H51.7z M63.5 27.1c-1.4-.9-2.9-1.8-4.6-2.3.3-.2.7-.3 1.1-.4 4.2-1.3 8.7-1 12.7.6l.3.1c-2.9.9-5.9 1.7-9 2.1l-.5-.1zm-6.2-3.4c2.4.5 4.6 1.5 6.5 2.9l.5.1c3.4-.4 6.8-1.3 10-2.4-4.4-2.2-9.5-2.7-14.5-1.4l-2.5.8zm22-1.7c-1.1-.4-2.3-.7-3.5-.9-3.7-.6-7.5-.3-11 .9 5.2-.5 10.3.3 14.5 2.7v-2.7z',
-    }],
-  },
-  appletv: {
-    viewBox: '0 0 72 16',
-    paths: [{
-      d: 'M5.9 3.1C6.6 2.2 7.1 1 7 0c-1 0-2.1.7-2.8 1.5C3.6 2.4 3 3.5 3.2 4.6c1.1.1 2.1-.6 2.7-1.5zM7 4.4c-1.5-.1-2.8.8-3.5.8S1.8 4.5.5 4.5C-1 4.6-2.4 5.5-3.1 6.9c-1.4 2.4-.4 6 1 7.9.7.9 1.5 2 2.5 2 1 0 1.4-.7 2.7-.7s1.6.7 2.7.7 1.8-1 2.5-1.9c.8-1 1.1-2 1.1-2.1-.1 0-2.2-.9-2.2-3.3 0-2.1 1.7-3 1.8-3.1C9.3 5 8 4.4 7 4.4zM18.5 1.3h-4L12 10.2l-2.6-8.9H5.2L9.7 14h2.5l4.6-12.7h1.7zm4.8 12.9c.8 0 1.6-.2 2.3-.7v.5h2.3V7.4c0-2.2-1.5-3.5-4-3.5-1.5 0-2.9.5-4 1.3l.9 1.6c.8-.6 1.7-.9 2.7-.9 1.1 0 1.7.5 1.7 1.4v.5c-.5-.2-1.1-.3-1.7-.3-2.1 0-3.4 1-3.4 2.6 0 1.5 1.1 2.6 2.7 2.6l.5.1zm.6-1.8c-.7 0-1.2-.4-1.2-1 0-.7.6-1.1 1.5-1.1.5 0 1 .1 1.4.2v.8c0 .6-.8 1.1-1.7 1.1zm6.5 1.6h2.3V.6h-2.3v13.4zm8.3.2c.8 0 1.6-.2 2.3-.7v.5H43V7.4c0-2.2-1.5-3.5-4-3.5-1.5 0-2.9.5-4 1.3l.9 1.6c.8-.6 1.7-.9 2.7-.9 1.1 0 1.7.5 1.7 1.4v.5c-.5-.2-1.1-.3-1.7-.3-2.1 0-3.4 1-3.4 2.6 0 1.5 1.1 2.6 2.7 2.6l.5.1zm.7-1.8c-.7 0-1.2-.4-1.2-1 0-.7.6-1.1 1.5-1.1.5 0 1 .1 1.4.2v.8c0 .6-.8 1.1-1.7 1.1zm6.8-.1c-.7 0-1.1-.4-1.1-1.2V6.2h2.1V4.1h-2.1V1.5H49V4.1h-1.8v2.1H49v5.4c0 1.9 1 2.8 3 2.8.5 0 1 0 1.5-.2v-2c-.3.1-.6.1-.9.1l-.5.1zm6.2 1.7c.8 0 1.6-.2 2.3-.7v.5h2.3V7.4c0-2.2-1.5-3.5-4-3.5-1.5 0-2.9.5-4 1.3l.9 1.6c.8-.6 1.7-.9 2.7-.9 1.1 0 1.7.5 1.7 1.4v.5c-.5-.2-1.1-.3-1.7-.3-2.1 0-3.4 1-3.4 2.6 0 1.5 1.1 2.6 2.7 2.6l.5.1zm.7-1.8c-.7 0-1.2-.4-1.2-1 0-.7.6-1.1 1.5-1.1.5 0 1 .1 1.4.2v.8c0 .6-.8 1.1-1.7 1.1zm11.2 1.8c2.3 0 4.1-1.5 4.1-3.5 0-1.6-1-2.7-3-3.2l-1.3-.3c-.9-.2-1.3-.6-1.3-1.1 0-.7.6-1.1 1.5-1.1.8 0 1.7.3 2.5.9l1-1.6c-1-.7-2.2-1.1-3.5-1.1-2.2 0-3.8 1.4-3.8 3.2 0 1.6 1 2.7 2.9 3.1l1.3.3c1 .2 1.4.6 1.4 1.2 0 .7-.7 1.2-1.7 1.2-1 0-2-.4-2.9-1.1l-1.1 1.7c1.1.9 2.5 1.4 3.9 1.4z',
-    }],
-  },
-  hulu: {
-    viewBox: '0 0 72 24',
-    paths: [{
-      d: 'M11.3 0v9.2C10 7.9 8.4 7.1 6.6 7.1 3 7.1.3 9.9.3 13.6V24h5.3v-9.8c0-1.7 1-2.7 2.5-2.7s2.5 1 2.5 2.7V24h5.3V0h-4.6zm16.3 7.4v9.8c0 1.7-1 2.7-2.5 2.7s-2.5-1-2.5-2.7V7.4H17v10.3c0 3.7 2.7 6.6 6.3 6.6 1.9 0 3.5-.8 4.7-2.2V24H33V7.4h-5.4zm10.2-7.4V24h5.3V0h-5.3zm16.3 7.4v9.8c0 1.7-1 2.7-2.5 2.7s-2.5-1-2.5-2.7V7.4h-5.3v10.3c0 3.7 2.7 6.6 6.3 6.6 1.9 0 3.5-.8 4.7-2.2V24h4.7V7.4h-5.4z',
-    }],
-  },
-  disney: {
-    viewBox: '0 0 72 22',
-    paths: [{
-      d: 'M6 .5C2.8.5.5 2.8.5 6v10c0 3.2 2.3 5.5 5.5 5.5h9V.5H6zm7.5 17.5H6c-2 0-3.5-1.5-3.5-3.5V6c0-2 1.5-3.5 3.5-3.5h7.5V18zM22 .5h-2v21h2V.5zm6.5 0L24 15l-.5 6.5H21L20.5 15 16 .5h2.5l3.5 12 3.5-12h2.5zm7-0v2h-6v7h5.5v2H29.5v7.5h6v2h-8V.5h8zM46 .5L41 12 46 21.5h-2.5L39 12l4.5-11.5H46zm10 0h-2V16l-8-15.5h-2V21.5h2V6.5l8 15h2V.5zm6 2V21.5h-2V2.5h-5v-2h12v2h-5z',
-    }],
-  },
-  max: {
-    viewBox: '0 0 60 22',
-    paths: [{
-      d: 'M2 0h10l5 11L22 0h10L20 22h-8L2 0zm36 0h10l-12 22H26L36 0zm16 0h6v22h-6V0z',
-    }],
-  },
-  crunchyroll: {
-    viewBox: '0 0 100 20',
-    paths: [{
-      d: 'M10 0C4.5 0 0 4.5 0 10s4.5 10 10 10 10-4.5 10-10S15.5 0 10 0zm0 16c-3.3 0-6-2.7-6-6s2.7-6 6-6 6 2.7 6 6-2.7 6-6 6zm6-6c0 3.3-2.7 6-6 6V4c3.3 0 6 2.7 6 6zM26 4h4v2.5c.7-1.7 2.2-2.8 4-2.8V7.5c-2.2-.2-4 1-4 3.5V16h-4V4zm10 0h4v1.8c.8-1.3 2.2-2 4-2 3.3 0 5 2 5 5.5V16h-4v-6c0-1.8-.8-2.8-2.3-2.8-1.5 0-2.7 1-2.7 2.8V16h-4V4zm15.5 9c.5 1.8 1.8 2.8 3.5 2.8 1.3 0 2.3-.5 3-1.5l3 1.8C59.5 17.5 57.5 19 55 19c-4 0-7-2.8-7-7.5C48 7 50.8 4 55 4c4 0 6.5 3 6.5 7.5v1.5h-10zm0-3h6c-.3-1.8-1.5-3-3-3s-2.7 1.2-3 3zm14.5-6h4v1.8c.8-1.3 2.2-2 4-2 3.3 0 5 2 5 5.5V16h-4v-6c0-1.8-.8-2.8-2.3-2.8-1.5 0-2.7 1-2.7 2.8V16h-4V4zm15 0h4v12h-4V4zm0-4h4v3h-4V0zm7 4h4v12h-4V4zm0-4h4v3h-4V0z',
-    }],
-  },
-};
 
-const PROVIDERS: ProviderConfig[] = [
-  { id: 'netflix',     tmdbId: 8,   name: 'Netflix',     svg: PROVIDER_SVGS.netflix },
-  { id: 'prime',       tmdbId: 9,   name: 'Prime Video', svg: PROVIDER_SVGS.prime },
-  { id: 'appletv',     tmdbId: 350, name: 'Apple TV+',   svg: PROVIDER_SVGS.appletv },
-  { id: 'hulu',        tmdbId: 15,  name: 'Hulu',        svg: PROVIDER_SVGS.hulu },
-  { id: 'disney',      tmdbId: 337, name: 'Disney+',     svg: PROVIDER_SVGS.disney },
-  { id: 'max',         tmdbId: 1899,name: 'Max',         svg: PROVIDER_SVGS.max },
-  { id: 'crunchyroll', tmdbId: 283, name: 'Crunchyroll', svg: PROVIDER_SVGS.crunchyroll },
-];
 
-// Provider logo renderer — inline SVG wordmark, always crisp B&W white
+// Provider logo renderer — local PNG from /public/logos/, forced white on dark bg
 const ProviderLogo = memo(function ProviderLogo({
-  provider, width = 64, height = 18,
+  provider, width = 64, height = 24,
 }: { provider: ProviderConfig; width?: number; height?: number }) {
   return (
-    <svg
-      viewBox={provider.svg.viewBox}
+    <img
+      src={`/logos/${provider.id}.png`}
+      alt={provider.name}
       width={width}
       height={height}
-      fill="white"
-      aria-label={provider.name}
-      style={{ display: 'block', flexShrink: 0 }}
-    >
-      {provider.svg.paths.map((p, i) => (
-        <path key={i} d={p.d} fill="white" />
-      ))}
-    </svg>
+      draggable={false}
+      style={{
+        display: 'block',
+        objectFit: 'contain',
+        // grayscale(1) strips colour, brightness(10) blows it to white on dark bg
+        filter: 'grayscale(1) brightness(10)',
+        flexShrink: 0,
+        userSelect: 'none',
+      }}
+    />
   );
 });
 
@@ -848,18 +805,18 @@ function ProviderShowcase({
 // Placed between ProviderShowcase rails and the Disclaimer section
 
 const MARQUEE_LOGOS: { name: string; url: string }[] = [
-  { name: 'Netflix',      url: 'https://image.tmdb.org/t/p/original/t2yyOv40HZeVlLjYsCsPHnWLk4W.jpg' },
-  { name: 'Prime Video',  url: 'https://image.tmdb.org/t/p/original/emthp39XA2YScoYL1p0sdbAH2WA.jpg' },
-  { name: 'Disney+',      url: 'https://image.tmdb.org/t/p/original/7rwgEs15tFwyR9NPQ5vpzxTj19Q.jpg' },
-  { name: 'Hulu',         url: 'https://image.tmdb.org/t/p/original/zxrVdFjIjLqkfnwyghnfywTn3Lh.jpg' },
-  { name: 'Crunchyroll',  url: 'https://image.tmdb.org/t/p/original/8Gt1iClBlzTeQs8WQm8UrCoIxnQ.jpg' },
-  { name: 'Apple TV+',    url: 'https://image.tmdb.org/t/p/original/peURlLlr8jggOwK53fJ5wdQl05y.jpg' },
-  { name: 'Max',          url: 'https://image.tmdb.org/t/p/original/Ajqyt5aNxNx9jp9MukZMVjMEzik.jpg' },
-  { name: 'Paramount+',   url: 'https://image.tmdb.org/t/p/original/h5DcR0J2EESLitnhR8xLG1QymTE.jpg' },
-  { name: 'Peacock',      url: 'https://image.tmdb.org/t/p/original/xTHltMrZPAJFLQ6qyCBjAnXSmZt.jpg' },
-  { name: 'Zee5',         url: 'https://image.tmdb.org/t/p/original/czFpqdOBRSoN9mjjJDGswXFZWfC.jpg' },
-  { name: 'JioCinema',    url: 'https://image.tmdb.org/t/p/original/dtFZOUOaB0RYrExAEKREF8lqg7Q.jpg' },
-  { name: 'SonyLiv',      url: 'https://image.tmdb.org/t/p/original/mhseqKnkXqLpbDkmNbRRvtaJZPJ.jpg' },
+  { name: 'Netflix',     url: '/logos/netflix.png'     },
+  { name: 'Prime Video', url: '/logos/prime.png'       },
+  { name: 'Disney+',     url: '/logos/disney.png'      },
+  { name: 'Hulu',        url: '/logos/hulu.png'        },
+  { name: 'Crunchyroll', url: '/logos/crunchyroll.png' },
+  { name: 'Apple TV+',   url: '/logos/appletv.png'     },
+  { name: 'Max',         url: '/logos/max.png'         },
+  { name: 'Paramount+',  url: 'https://image.tmdb.org/t/p/original/h5DcR0J2EESLitnhR8xLG1QymTE.jpg' },
+  { name: 'Peacock',     url: 'https://image.tmdb.org/t/p/original/xTHltMrZPAJFLQ6qyCBjAnXSmZt.jpg' },
+  { name: 'Zee5',        url: 'https://image.tmdb.org/t/p/original/czFpqdOBRSoN9mjjJDGswXFZWfC.jpg' },
+  { name: 'JioCinema',   url: 'https://image.tmdb.org/t/p/original/dtFZOUOaB0RYrExAEKREF8lqg7Q.jpg' },
+  { name: 'SonyLiv',     url: 'https://image.tmdb.org/t/p/original/mhseqKnkXqLpbDkmNbRRvtaJZPJ.jpg' },
 ];
 
 function OTTMarquee() {
@@ -1099,9 +1056,9 @@ const ProviderButton = memo(function ProviderButton({
         background: selected ? 'rgba(255,255,255,0.08)' : 'rgba(15,19,24,0.9)',
         border: `1.5px solid ${selected ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.07)'}`,
         borderRadius: 18,
-        padding: '14px 10px',
+        padding: '12px 10px',
         width: 86,
-        height: 72,
+        height: 84,
         fontFamily: 'inherit',
         WebkitTapHighlightColor: 'transparent',
         // 3D raised: top rim + bottom shadow
@@ -1126,16 +1083,33 @@ const ProviderButton = memo(function ProviderButton({
         pointerEvents: 'none',
       }} />
 
-      {/* SVG wordmark */}
+      {/* PNG logo */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        opacity: selected ? 1 : 0.55,
+        width: 48, height: 26,
+        opacity: selected ? 1 : 0.5,
         transition: 'opacity 0.18s ease',
-        maxWidth: 66,
-        overflow: 'hidden',
       }}>
-        <ProviderLogo provider={provider} width={66} height={20} />
+        <ProviderLogo provider={provider} width={48} height={26} />
       </div>
+
+      {/* Platform name */}
+      <span style={{
+        fontSize: 9,
+        fontWeight: 600,
+        color: selected ? C.text : C.textSub,
+        letterSpacing: '0.03em',
+        textAlign: 'center',
+        lineHeight: 1.2,
+        maxWidth: 70,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        transition: 'color 0.18s ease',
+        fontFamily: '"Inter", system-ui, sans-serif',
+      }}>
+        {provider.name}
+      </span>
 
       {/* Active dot indicator */}
       {selected && (
@@ -1148,15 +1122,6 @@ const ProviderButton = memo(function ProviderButton({
     </button>
   );
 });
-
-// Helper to darken a hex color for the 3D bottom shadow
-function adjustColor(hex: string, amount: number): string {
-  const num = parseInt(hex.replace('#', ''), 16);
-  const r = Math.max(0, Math.min(255, (num >> 16) + amount));
-  const g = Math.max(0, Math.min(255, ((num >> 8) & 0xff) + amount));
-  const b = Math.max(0, Math.min(255, (num & 0xff) + amount));
-  return `rgb(${r},${g},${b})`;
-}
 
 // ─── BROWSE BY GENRE SECTION ──────────────────────────────────────────────────
 // Premium genre grid with icon + label tiles — dark minimal aesthetic
