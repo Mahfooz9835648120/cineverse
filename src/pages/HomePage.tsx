@@ -118,10 +118,12 @@ const PROVIDER_COLORS: Record<string, string> = {
 
 
 
-// Provider logo renderer — local PNG from /public/logos/, forced white on dark bg
+// Provider logo renderer — local PNG from /public/logos/
+// All logos are dark/black on white bg → invert(1) flips to white on black,
+// which blends seamlessly into the dark tile background
 const ProviderLogo = memo(function ProviderLogo({
-  provider, width = 64, height = 24,
-}: { provider: ProviderConfig; width?: number; height?: number }) {
+  provider, width = 64, height = 24, dim = false,
+}: { provider: ProviderConfig; width?: number; height?: number; dim?: boolean }) {
   return (
     <img
       src={`/logos/${provider.id}.png`}
@@ -132,10 +134,13 @@ const ProviderLogo = memo(function ProviderLogo({
       style={{
         display: 'block',
         objectFit: 'contain',
-        // grayscale(1) strips colour, brightness(10) blows it to white on dark bg
-        filter: 'grayscale(1) brightness(10)',
+        // invert(1): white bg → black (hides), black logo → white (shows)
+        filter: dim
+          ? 'invert(1) brightness(0.7)'
+          : 'invert(1) brightness(1.05)',
         flexShrink: 0,
         userSelect: 'none',
+        transition: 'filter 0.2s ease, opacity 0.2s ease',
       }}
     />
   );
@@ -670,9 +675,9 @@ function ProviderShowcase({
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          height: 28, opacity: 0.7,
+          height: 28, opacity: 0.85,
         }}>
-          <ProviderLogo provider={provider} width={72} height={22} />
+          <ProviderLogo provider={provider} width={72} height={22} dim={false} />
         </div>
         <h2 style={{
           margin: 0, fontSize: 'clamp(15px, 3.8vw, 20px)', fontWeight: 800,
@@ -741,7 +746,7 @@ function ProviderShowcase({
                   position: 'absolute', top: 12, right: 12,
                   opacity: 0.55, display: 'flex', alignItems: 'center',
                 }}>
-                  <ProviderLogo provider={provider} width={48} height={14} />
+                  <ProviderLogo provider={provider} width={48} height={14} dim={true} />
                 </div>
 
                 {/* Bottom content */}
@@ -1067,7 +1072,7 @@ const ProviderButton = memo(function ProviderButton({
           background: '#111418',
           border: `1.5px solid ${selected ? brandColor + '88' : 'rgba(255,255,255,0.08)'}`,
           boxShadow: selected
-            ? `0 0 0 1.5px ${brandColor}44, 0 5px 0 rgba(0,0,0,0.55), 0 10px 28px ${brandColor}28`
+            ? '0 0 0 1.5px rgba(255,255,255,0.3), 0 5px 0 rgba(0,0,0,0.55), 0 10px 28px rgba(255,255,255,0.1)'
             : '0 4px 0 rgba(0,0,0,0.5), 0 6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.07)',
           transform: pressed
             ? 'scale(0.91) translateY(3px)'
@@ -1089,11 +1094,12 @@ const ProviderButton = memo(function ProviderButton({
             height: '100%',
             objectFit: 'contain',
             padding: 12,
+            // invert(1): black logo → white, white bg → black (blends with tile)
             filter: selected
-              ? 'grayscale(1) brightness(10)'
-              : 'grayscale(1) brightness(6)',
-            opacity: selected ? 1 : 0.65,
-            transition: 'opacity 0.18s ease, filter 0.18s ease',
+              ? 'invert(1) brightness(1.1)'
+              : 'invert(1) brightness(0.65)',
+            opacity: selected ? 1 : 0.7,
+            transition: 'opacity 0.2s ease, filter 0.2s ease',
             userSelect: 'none',
           }}
         />
@@ -1106,11 +1112,11 @@ const ProviderButton = memo(function ProviderButton({
           pointerEvents: 'none',
         }} />
 
-        {/* Selected brand glow overlay */}
+        {/* Selected white glow overlay — soft, subtle */}
         {selected && (
           <div style={{
             position: 'absolute', inset: 0,
-            background: `radial-gradient(ellipse at 50% 110%, ${brandColor}18 0%, transparent 70%)`,
+            background: 'radial-gradient(ellipse at 50% 120%, rgba(255,255,255,0.12) 0%, transparent 65%)',
             pointerEvents: 'none',
           }} />
         )}
