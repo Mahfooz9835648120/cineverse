@@ -256,7 +256,7 @@ async function fetchProviderTop10(providerTmdbId: number): Promise<CineItem[]> {
 function SkeletonCard() {
   return (
     <div style={{
-      flexShrink: 0, width: 'calc((100vw - 8vw - 24px) / 3)', maxWidth: 280,
+      flexShrink: 0, width: 'clamp(120px, calc((100vw - 8vw - 48px) / 4), 160px)',
       borderRadius: 14, overflow: 'hidden', background: C.surface,
     }}>
       <div style={{ width: '100%', paddingTop: '140%' }} className="cv-sk" />
@@ -288,7 +288,7 @@ const PosterCard = memo(function PosterCard({
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        flexShrink: 0, width: 'calc((100vw - 8vw - 24px) / 3)', maxWidth: 280,
+        flexShrink: 0, width: 'clamp(120px, calc((100vw - 8vw - 48px) / 4), 160px)',
         borderRadius: 14, overflow: 'hidden', background: 'transparent',
         border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left',
         transform: hov ? 'scale(1.04)' : 'scale(1)',
@@ -505,8 +505,8 @@ function TopTenRail({
             overflowX: 'auto',
             scrollSnapType: 'x mandatory',
             scrollbarWidth: 'none',
-            gap: 12,
-            paddingBlock: 12,
+            gap: 0,
+            paddingBlock: 16,
             position: 'relative',
             zIndex: 1,
           }}
@@ -515,39 +515,46 @@ function TopTenRail({
             const dist = Math.abs(idx - activeIdx);
             const isActive = idx === activeIdx;
             // Blur scales with distance from active during swipe
-            const blurAmount = isSwiping && !isActive ? Math.min(dist * 4, 10) : 0;
-            const scale = isActive ? 1 : isSwiping ? 0.94 - dist * 0.012 : 0.96;
+            const blurAmount = isSwiping && !isActive ? Math.min(dist * 3, 8) : 0;
+            const scale = isActive ? 1 : isSwiping ? Math.max(0.93 - dist * 0.01, 0.88) : 0.95;
             const shadowIntensity = isActive ? (isSwiping ? 0.9 : 0.7) : 0.3;
 
             return (
               <div
                 key={item.tmdb_id}
-                onClick={() => onItemClick(item)}
                 style={{
                   flexShrink: 0,
                   width: '100%',
-                  height: 'min(300px, 54vw)',
-                  scrollSnapAlign: 'start',
+                  scrollSnapAlign: 'center',
                   scrollSnapStop: 'always',
-                  position: 'relative',
-                  cursor: 'pointer',
-                  borderRadius: 22,
-                  overflow: 'hidden',
-                  background: C.surface,
-                  // 3D raised shadow — glows more when active
-                  boxShadow: isActive
-                    ? `0 8px 0 rgba(0,0,0,0.5), 0 16px 48px rgba(0,0,0,${shadowIntensity}), 0 0 0 1px rgba(255,255,255,0.07), 0 -1px 0 rgba(255,255,255,0.04) inset`
-                    : `0 4px 0 rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04)`,
-                  // Blur leaving cards, unblur entering
-                  filter: blurAmount > 0 ? `blur(${blurAmount}px)` : 'none',
-                  // 3D perspective tilt + scale
-                  transform: `scale(${scale}) ${!isActive && isSwiping ? `perspective(800px) rotateY(${idx < activeIdx ? '4' : '-4'}deg)` : ''}`,
-                  transition: isSwiping
-                    ? 'filter 0.08s ease, transform 0.08s ease, box-shadow 0.15s ease'
-                    : 'filter 0.35s cubic-bezier(0.2,0.8,0.2,1), transform 0.35s cubic-bezier(0.2,0.8,0.2,1), box-shadow 0.35s ease',
-                  willChange: 'filter, transform',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 2px',
                 }}
               >
+                <div
+                  onClick={() => onItemClick(item)}
+                  style={{
+                    width: '100%',
+                    height: 'min(300px, 54vw)',
+                    position: 'relative',
+                    cursor: 'pointer',
+                    borderRadius: 22,
+                    overflow: 'hidden',
+                    background: C.surface,
+                    boxShadow: isActive
+                      ? `0 8px 0 rgba(0,0,0,0.5), 0 16px 48px rgba(0,0,0,${shadowIntensity}), 0 0 0 1px rgba(255,255,255,0.07), 0 -1px 0 rgba(255,255,255,0.04) inset`
+                      : `0 4px 0 rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04)`,
+                    filter: blurAmount > 0 ? `blur(${blurAmount}px)` : 'none',
+                    transform: `scale(${scale})`,
+                    transformOrigin: 'center center',
+                    transition: isSwiping
+                      ? 'filter 0.1s ease, transform 0.12s cubic-bezier(0.2,0.8,0.2,1), box-shadow 0.15s ease'
+                      : 'filter 0.4s cubic-bezier(0.2,0.8,0.2,1), transform 0.4s cubic-bezier(0.2,0.8,0.2,1), box-shadow 0.4s ease',
+                    willChange: 'filter, transform',
+                  }}
+                >
                 <img
                   src={item.backdrop || item.poster}
                   alt=""
@@ -620,6 +627,7 @@ function TopTenRail({
                     />
                   ))}
                 </div>
+                </div>
               </div>
             );
           })}
@@ -671,13 +679,19 @@ function ProviderShowcase({
 
   return (
     <section style={{ marginBottom: 48, paddingInline: '4vw' }}>
-      {/* Header with SVG logo */}
+      {/* Header with provider name as styled text */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
         <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          height: 28, opacity: 0.85,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          height: 28, paddingInline: 12, borderRadius: 8,
+          background: (PROVIDER_COLORS[provider.id] || '#ffffff') + '18',
+          border: `1px solid ${(PROVIDER_COLORS[provider.id] || '#ffffff')}33`,
         }}>
-          <ProviderLogo provider={provider} width={72} height={22} dim={false} />
+          <span style={{
+            fontSize: 13, fontWeight: 800, letterSpacing: '-0.02em',
+            color: PROVIDER_COLORS[provider.id] || C.text,
+            fontFamily: '"Outfit", "Inter", system-ui, sans-serif',
+          }}>{provider.name}</span>
         </div>
         <h2 style={{
           margin: 0, fontSize: 'clamp(15px, 3.8vw, 20px)', fontWeight: 800,
@@ -706,34 +720,42 @@ function ProviderShowcase({
           ref={scrollRef}
           style={{
             display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory',
-            scrollbarWidth: 'none', gap: 12, paddingBlock: 12, position: 'relative', zIndex: 1,
+            scrollbarWidth: 'none', gap: 0, paddingBlock: 16, position: 'relative', zIndex: 1,
           }}
         >
           {filtered.map((item, idx) => {
             const dist = Math.abs(idx - activeIdx);
             const isActive = idx === activeIdx;
-            const blurAmount = isSwiping && !isActive ? Math.min(dist * 4, 10) : 0;
-            const scale = isActive ? 1 : isSwiping ? 0.94 - dist * 0.012 : 0.96;
+            const blurAmount = isSwiping && !isActive ? Math.min(dist * 3, 8) : 0;
+            const scale = isActive ? 1 : isSwiping ? Math.max(0.93 - dist * 0.01, 0.88) : 0.95;
             return (
               <div
                 key={item.tmdb_id}
-                onClick={() => onItemClick(item)}
                 style={{
-                  flexShrink: 0, width: '100%', height: 'min(300px, 54vw)',
-                  scrollSnapAlign: 'start', scrollSnapStop: 'always',
-                  position: 'relative', cursor: 'pointer', borderRadius: 22,
-                  overflow: 'hidden', background: C.surface,
-                  boxShadow: isActive
-                    ? `0 8px 0 rgba(0,0,0,0.5), 0 16px 48px rgba(0,0,0,${isSwiping ? 0.9 : 0.7}), 0 0 0 1px rgba(255,255,255,0.07)`
-                    : '0 4px 0 rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04)',
-                  filter: blurAmount > 0 ? `blur(${blurAmount}px)` : 'none',
-                  transform: `scale(${scale}) ${!isActive && isSwiping ? `perspective(800px) rotateY(${idx < activeIdx ? '4' : '-4'}deg)` : ''}`,
-                  transition: isSwiping
-                    ? 'filter 0.08s ease, transform 0.08s ease, box-shadow 0.15s ease'
-                    : 'filter 0.35s cubic-bezier(0.2,0.8,0.2,1), transform 0.35s cubic-bezier(0.2,0.8,0.2,1), box-shadow 0.35s ease',
-                  willChange: 'filter, transform',
+                  flexShrink: 0, width: '100%',
+                  scrollSnapAlign: 'center', scrollSnapStop: 'always',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '0 2px',
                 }}
               >
+                <div
+                  onClick={() => onItemClick(item)}
+                  style={{
+                    width: '100%', height: 'min(300px, 54vw)',
+                    position: 'relative', cursor: 'pointer', borderRadius: 22,
+                    overflow: 'hidden', background: C.surface,
+                    boxShadow: isActive
+                      ? `0 8px 0 rgba(0,0,0,0.5), 0 16px 48px rgba(0,0,0,${isSwiping ? 0.9 : 0.7}), 0 0 0 1px rgba(255,255,255,0.07)`
+                      : '0 4px 0 rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04)',
+                    filter: blurAmount > 0 ? `blur(${blurAmount}px)` : 'none',
+                    transform: `scale(${scale})`,
+                    transformOrigin: 'center center',
+                    transition: isSwiping
+                      ? 'filter 0.1s ease, transform 0.12s cubic-bezier(0.2,0.8,0.2,1), box-shadow 0.15s ease'
+                      : 'filter 0.4s cubic-bezier(0.2,0.8,0.2,1), transform 0.4s cubic-bezier(0.2,0.8,0.2,1), box-shadow 0.4s ease',
+                    willChange: 'filter, transform',
+                  }}
+                >
                 <img
                   src={item.backdrop || item.poster} alt=""
                   style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }}
@@ -741,12 +763,19 @@ function ProviderShowcase({
                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(7,9,13,0.97) 0%, rgba(7,9,13,0.38) 55%, transparent 100%)' }} />
                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(7,9,13,0.5) 0%, transparent 55%)' }} />
 
-                {/* Provider logo watermark top-right */}
+                {/* Provider name watermark top-right */}
                 <div style={{
                   position: 'absolute', top: 12, right: 12,
-                  opacity: 0.55, display: 'flex', alignItems: 'center',
+                  opacity: 0.7, display: 'flex', alignItems: 'center',
+                  background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)',
+                  borderRadius: 6, padding: '3px 8px',
+                  border: '1px solid rgba(255,255,255,0.1)',
                 }}>
-                  <ProviderLogo provider={provider} width={48} height={14} dim={true} />
+                  <span style={{
+                    fontSize: 10, fontWeight: 800, letterSpacing: '-0.01em',
+                    color: PROVIDER_COLORS[provider.id] || C.text,
+                    fontFamily: '"Outfit", "Inter", system-ui, sans-serif',
+                  }}>{provider.name}</span>
                 </div>
 
                 {/* Bottom content */}
@@ -796,6 +825,7 @@ function ProviderShowcase({
                     />
                   ))}
                 </div>
+                </div>
               </div>
             );
           })}
@@ -805,23 +835,22 @@ function ProviderShowcase({
   );
 }
 
-// ─── OTT LOGO MARQUEE STRIP ───────────────────────────────────────────────────
-// Animated left-to-right infinite scrolling strip of real OTT logos
-// Placed between ProviderShowcase rails and the Disclaimer section
+// ─── OTT TEXT MARQUEE STRIP ───────────────────────────────────────────────────
+// Animated scrolling strip of OTT platform names as styled text pills
 
-const MARQUEE_LOGOS: { name: string; url: string }[] = [
-  { name: 'Netflix',     url: '/logos/netflix.png'     },
-  { name: 'Prime Video', url: '/logos/prime.png'       },
-  { name: 'Disney+',     url: '/logos/disney.png'      },
-  { name: 'Hulu',        url: '/logos/hulu.png'        },
-  { name: 'Crunchyroll', url: '/logos/crunchyroll.png' },
-  { name: 'Apple TV+',   url: '/logos/appletv.png'     },
-  { name: 'Max',         url: '/logos/max.png'         },
-  { name: 'Paramount+',  url: 'https://image.tmdb.org/t/p/original/h5DcR0J2EESLitnhR8xLG1QymTE.jpg' },
-  { name: 'Peacock',     url: 'https://image.tmdb.org/t/p/original/xTHltMrZPAJFLQ6qyCBjAnXSmZt.jpg' },
-  { name: 'Zee5',        url: 'https://image.tmdb.org/t/p/original/czFpqdOBRSoN9mjjJDGswXFZWfC.jpg' },
-  { name: 'JioCinema',   url: 'https://image.tmdb.org/t/p/original/dtFZOUOaB0RYrExAEKREF8lqg7Q.jpg' },
-  { name: 'SonyLiv',     url: 'https://image.tmdb.org/t/p/original/mhseqKnkXqLpbDkmNbRRvtaJZPJ.jpg' },
+const MARQUEE_OTTS: { name: string; color: string }[] = [
+  { name: 'Netflix',     color: '#E50914' },
+  { name: 'Prime Video', color: '#00A8E0' },
+  { name: 'Disney+',     color: '#5588FF' },
+  { name: 'Hulu',        color: '#1CE783' },
+  { name: 'Crunchyroll', color: '#F47521' },
+  { name: 'Apple TV+',   color: '#aaaaaa' },
+  { name: 'Max',         color: '#6644FF' },
+  { name: 'Paramount+',  color: '#0064FF' },
+  { name: 'Peacock',     color: '#FF6B35' },
+  { name: 'Zee5',        color: '#8B2BE2' },
+  { name: 'JioCinema',   color: '#FF3366' },
+  { name: 'SonyLiv',     color: '#00B4D8' },
 ];
 
 function OTTMarquee() {
@@ -866,11 +895,14 @@ function OTTMarquee() {
         {/* Scrolling track — doubled for seamless loop */}
         <div style={{
           display: 'flex',
+          alignItems: 'center',
           width: 'max-content',
           animation: 'ott-scroll 34s linear infinite',
+          gap: 10,
+          padding: '4px 0',
         }}>
-          {[...MARQUEE_LOGOS, ...MARQUEE_LOGOS].map((logo, i) => (
-            <OTTLogoChip key={`${logo.name}-${i}`} logo={logo} />
+          {[...MARQUEE_OTTS, ...MARQUEE_OTTS].map((ott, i) => (
+            <OTTTextChip key={`${ott.name}-${i}`} ott={ott} />
           ))}
         </div>
       </div>
@@ -878,70 +910,40 @@ function OTTMarquee() {
   );
 }
 
-const OTTLogoChip = memo(function OTTLogoChip({ logo }: { logo: { name: string; url: string } }) {
-  const [err, setErr] = useState(false);
+const OTTTextChip = memo(function OTTTextChip({ ott }: { ott: { name: string; color: string } }) {
   const [hov, setHov] = useState(false);
   return (
     <div
-      title={logo.name}
+      title={ott.name}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
         flexShrink: 0,
-        marginInline: 6,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 6,
+        marginInline: 4,
         cursor: 'default',
+        display: 'flex',
+        alignItems: 'center',
+        height: 36,
+        paddingInline: 16,
+        borderRadius: 10,
+        background: hov ? ott.color + '1a' : '#111418',
+        border: `1px solid ${hov ? ott.color + '55' : 'rgba(255,255,255,0.07)'}`,
+        boxShadow: hov
+          ? `0 0 0 1px ${ott.color}22, 0 6px 18px rgba(0,0,0,0.5)`
+          : '0 2px 0 #090c12, 0 4px 12px rgba(0,0,0,0.4)',
+        transform: hov ? 'translateY(-2px)' : 'translateY(0)',
+        transition: 'box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease, border-color 0.2s ease',
       }}
     >
-      {/* Square tile */}
-      <div style={{
-        width: 52,
-        height: 52,
-        borderRadius: 14,
-        overflow: 'hidden',
-        background: '#111418',
-        boxShadow: hov
-          ? '0 0 0 2px rgba(255,255,255,0.25), 0 8px 20px rgba(0,0,0,0.5)'
-          : '0 3px 0 #090c12, 0 5px 14px rgba(0,0,0,0.55)',
-        transform: hov ? 'translateY(-2px)' : 'translateY(0)',
-        transition: 'box-shadow 0.18s ease, transform 0.18s ease',
-        position: 'relative',
-      }}>
-        {err ? (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{
-              fontSize: 7, fontWeight: 800, color: 'rgba(248,249,251,0.6)',
-              textTransform: 'uppercase', letterSpacing: '0.04em',
-              textAlign: 'center', lineHeight: 1.2, padding: 4,
-            }}>{logo.name}</span>
-          </div>
-        ) : (
-          <img
-            src={logo.url}
-            alt={logo.name}
-            loading="lazy"
-            draggable={false}
-            onError={() => setErr(true)}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', userSelect: 'none', filter: 'grayscale(1) brightness(1.05)' }}
-          />
-        )}
-        {/* Shine overlay */}
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, height: '40%',
-          background: 'linear-gradient(to bottom, rgba(255,255,255,0.08) 0%, transparent 100%)',
-          pointerEvents: 'none',
-        }} />
-      </div>
-      {/* Name label */}
       <span style={{
-        fontSize: 8, fontWeight: 500, color: hov ? C.accent : C.textSub,
-        letterSpacing: '0.02em', textAlign: 'center', lineHeight: 1.1,
-        maxWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        transition: 'color 0.18s',
-      }}>{logo.name}</span>
+        fontSize: 12,
+        fontWeight: 700,
+        letterSpacing: '-0.01em',
+        color: hov ? ott.color : 'rgba(248,249,251,0.55)',
+        fontFamily: '"Outfit", "Inter", system-ui, sans-serif',
+        transition: 'color 0.2s ease',
+        whiteSpace: 'nowrap',
+      }}>{ott.name}</span>
     </div>
   );
 });
@@ -1032,7 +1034,7 @@ function OttSelector({
   );
 }
 
-// Provider pill button — horizontal card with SVG wordmark, premium raised look
+// Provider pill button — text-based, brand colour accent, premium raised look
 const ProviderButton = memo(function ProviderButton({
   provider, selected, brandColor, onClick,
 }: {
@@ -1042,113 +1044,64 @@ const ProviderButton = memo(function ProviderButton({
   onClick: () => void;
 }) {
   const [pressed, setPressed] = useState(false);
+  const [hov, setHov] = useState(false);
 
   return (
-    <div style={{
-      flexShrink: 0,
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      gap: 8,
-    }}>
-      {/* Square tile — logo fills it entirely */}
-      <button
-        onClick={onClick}
-        onPointerDown={() => setPressed(true)}
-        onPointerUp={() => setPressed(false)}
-        onPointerLeave={() => setPressed(false)}
-        title={provider.name}
-        style={{
-          flexShrink: 0,
-          width: 72,
-          height: 72,
-          borderRadius: 18,
-          padding: 0,
-          cursor: 'pointer',
-          fontFamily: 'inherit',
-          WebkitTapHighlightColor: 'transparent',
-          position: 'relative',
-          overflow: 'hidden',
-          background: '#111418',
-          border: `1.5px solid ${selected ? brandColor + '88' : 'rgba(255,255,255,0.08)'}`,
-          boxShadow: selected
-            ? '0 0 0 1.5px rgba(255,255,255,0.3), 0 5px 0 rgba(0,0,0,0.55), 0 10px 28px rgba(255,255,255,0.1)'
-            : '0 4px 0 rgba(0,0,0,0.5), 0 6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.07)',
-          transform: pressed
-            ? 'scale(0.91) translateY(3px)'
-            : selected
-              ? 'translateY(-3px) scale(1.04)'
-              : 'translateY(0) scale(1)',
-          transition: 'transform 0.14s cubic-bezier(0.2,0.8,0.2,1), box-shadow 0.18s ease, border-color 0.18s ease',
-        }}
-      >
-        {/* Full-fill logo image */}
-        <img
-          src={`/logos/${provider.id}.png`}
-          alt={provider.name}
-          draggable={false}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain',
-            padding: 12,
-            // invert(1): black logo → white, white bg → black (blends with tile)
-            filter: selected
-              ? 'invert(1) brightness(1.1)'
-              : 'invert(1) brightness(0.65)',
-            opacity: selected ? 1 : 0.7,
-            transition: 'opacity 0.2s ease, filter 0.2s ease',
-            userSelect: 'none',
-          }}
-        />
-
-        {/* Top rim shine */}
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, height: 1,
-          background: 'rgba(255,255,255,0.13)',
-          borderRadius: '18px 18px 0 0',
-          pointerEvents: 'none',
-        }} />
-
-        {/* Selected white glow overlay — soft, subtle */}
-        {selected && (
-          <div style={{
-            position: 'absolute', inset: 0,
-            background: 'radial-gradient(ellipse at 50% 120%, rgba(255,255,255,0.12) 0%, transparent 65%)',
-            pointerEvents: 'none',
-          }} />
-        )}
-
-        {/* Selected dot — bottom center */}
-        {selected && (
-          <div style={{
-            position: 'absolute', bottom: 5, left: '50%', transform: 'translateX(-50%)',
-            width: 4, height: 4, borderRadius: '50%',
-            background: 'rgba(255,255,255,0.9)',
-          }} />
-        )}
-      </button>
-
-      {/* Platform name — below the tile */}
-      <span style={{
-        fontSize: 10,
-        fontWeight: selected ? 700 : 500,
-        color: selected ? C.text : C.textSub,
-        letterSpacing: '0.01em',
-        textAlign: 'center',
-        lineHeight: 1.2,
-        maxWidth: 72,
+    <button
+      onClick={onClick}
+      onPointerDown={() => setPressed(true)}
+      onPointerUp={() => setPressed(false)}
+      onPointerLeave={() => { setPressed(false); setHov(false); }}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      title={provider.name}
+      style={{
+        flexShrink: 0,
+        height: 40,
+        paddingInline: 18,
+        borderRadius: 12,
+        cursor: 'pointer',
+        fontFamily: '"Outfit", "Inter", system-ui, sans-serif',
+        fontSize: 13,
+        fontWeight: selected ? 800 : 600,
+        letterSpacing: '-0.01em',
+        WebkitTapHighlightColor: 'transparent',
+        background: selected
+          ? brandColor + '22'
+          : hov ? 'rgba(255,255,255,0.07)' : '#111418',
+        border: `1.5px solid ${selected ? brandColor + '66' : 'rgba(255,255,255,0.09)'}`,
+        color: selected ? brandColor : hov ? C.text : C.textSub,
+        boxShadow: selected
+          ? `0 0 0 1px ${brandColor}22, 0 4px 0 rgba(0,0,0,0.5), 0 8px 20px ${brandColor}18`
+          : '0 3px 0 rgba(0,0,0,0.5), 0 5px 14px rgba(0,0,0,0.3)',
+        transform: pressed
+          ? 'scale(0.93) translateY(2px)'
+          : selected
+            ? 'translateY(-2px) scale(1.03)'
+            : 'translateY(0) scale(1)',
+        transition: 'transform 0.14s cubic-bezier(0.2,0.8,0.2,1), box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease',
+        position: 'relative',
         overflow: 'hidden',
-        textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
-        transition: 'color 0.18s ease, font-weight 0.18s ease',
-        fontFamily: '"Inter", system-ui, sans-serif',
-      }}>
-        {provider.name}
-      </span>
-    </div>
+      }}
+    >
+      {/* Top rim shine */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 1,
+        background: 'rgba(255,255,255,0.1)',
+        borderRadius: '12px 12px 0 0',
+        pointerEvents: 'none',
+      }} />
+      {provider.name}
+      {/* Selected dot — bottom center */}
+      {selected && (
+        <div style={{
+          position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)',
+          width: 3, height: 3, borderRadius: '50%',
+          background: brandColor,
+        }} />
+      )}
+    </button>
   );
 });
 
