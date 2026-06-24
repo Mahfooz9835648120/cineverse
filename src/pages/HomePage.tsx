@@ -88,107 +88,99 @@ export interface CineItem {
 }
 
 // ─── PROVIDER CONFIG ──────────────────────────────────────────────────────────
-// Using Simple Icons CDN for exact brand SVG logos rendered in white
-// All presented in B&W monochrome to match the dark theme
+// Inline SVG paths — clean B&W, crisp at any size, no image fetching
 interface ProviderConfig {
   id: string;
   tmdbId: number;
   name: string;
-  iconUrl: string | null;
-  fallbackText?: string;
+  // SVG viewBox and path(s) for the brand wordmark/logo
+  svg: { viewBox: string; paths: { d: string; fill?: string; fillRule?: 'evenodd' | 'nonzero' }[] };
 }
 
-// Brand accent colours — used for the 3D button glow on selection
+// Brand accent colours — used for border glow on selection
 const PROVIDER_COLORS: Record<string, string> = {
   netflix:     '#E50914',
   prime:       '#00A8E0',
-  appletv:     '#555555',
+  appletv:     '#aaaaaa',
   hulu:        '#1CE783',
-  disney:      '#113CCF',
-  max:         '#0031B4',
+  disney:      '#5588FF',
+  max:         '#6644FF',
   crunchyroll: '#F47521',
 };
 
+// Inline B&W SVG wordmarks — traced from official logos, rendered white on dark bg
+const PROVIDER_SVGS: Record<string, { viewBox: string; paths: { d: string }[] }> = {
+  netflix: {
+    viewBox: '0 0 111 30',
+    paths: [{
+      d: 'M105.06 28.6 94.4 0h-9.2l15.06 30h4.8zm-93.8 0L0 0h4.5l9.2 23.6L23.3 0h4.6L17.5 28.6 21.8 30 32.5 0h9.2L27.06 30h-4.8l-1.8-4.7-1.8 4.7h-4.8l-.3-.7zm27.5.7V0h4.5v29.3h-4.5zm11.8 0V0h4.5v25.6h12.3V30H50.56zm18.7 0V0h17.5v4.4H73.76v7.8h12.3v4.4H73.76v9.1h12.3V30h-17.5zm19.2 0V0h4.5l12.3 19.8V0h4.5v30h-4.5L93.46 10.2V30h-4.5z',
+    }],
+  },
+  prime: {
+    viewBox: '0 0 120 34',
+    paths: [{
+      d: 'M7.5 12.3h4.8c2.8 0 4.2 1.3 4.2 3.6 0 2.4-1.5 3.8-4.3 3.8H9.8v4.8H7.5V12.3zm2.3 5.6h2.3c1.4 0 2.1-.6 2.1-2 0-1.3-.7-1.9-2.1-1.9H9.8v3.9zm9.6-5.6h4.5c2.7 0 4.1 1.2 4.1 3.3 0 1.7-.9 2.8-2.4 3.1l2.7 4.8h-2.6l-2.4-4.5h-1.6v4.5h-2.3V12.3zm2.3 4.9h2c1.3 0 2-.6 2-1.7 0-1.1-.7-1.7-2-1.7h-2v3.4zm9.7 7.3V12.3h2.3v12.2h-2.3zm5.5 0V12.3h3.2l2.9 8.4 2.9-8.4h3.2v12.2h-2.2v-8.8l-3.1 8.8h-1.6l-3.1-8.8v8.8H36.9zm14.8 0V12.3h7.7v1.9h-5.4v3.2h5.1v1.9h-5.1v3.4h5.5v1.8H51.7z M63.5 27.1c-1.4-.9-2.9-1.8-4.6-2.3.3-.2.7-.3 1.1-.4 4.2-1.3 8.7-1 12.7.6l.3.1c-2.9.9-5.9 1.7-9 2.1l-.5-.1zm-6.2-3.4c2.4.5 4.6 1.5 6.5 2.9l.5.1c3.4-.4 6.8-1.3 10-2.4-4.4-2.2-9.5-2.7-14.5-1.4l-2.5.8zm22-1.7c-1.1-.4-2.3-.7-3.5-.9-3.7-.6-7.5-.3-11 .9 5.2-.5 10.3.3 14.5 2.7v-2.7z',
+    }],
+  },
+  appletv: {
+    viewBox: '0 0 72 16',
+    paths: [{
+      d: 'M5.9 3.1C6.6 2.2 7.1 1 7 0c-1 0-2.1.7-2.8 1.5C3.6 2.4 3 3.5 3.2 4.6c1.1.1 2.1-.6 2.7-1.5zM7 4.4c-1.5-.1-2.8.8-3.5.8S1.8 4.5.5 4.5C-1 4.6-2.4 5.5-3.1 6.9c-1.4 2.4-.4 6 1 7.9.7.9 1.5 2 2.5 2 1 0 1.4-.7 2.7-.7s1.6.7 2.7.7 1.8-1 2.5-1.9c.8-1 1.1-2 1.1-2.1-.1 0-2.2-.9-2.2-3.3 0-2.1 1.7-3 1.8-3.1C9.3 5 8 4.4 7 4.4zM18.5 1.3h-4L12 10.2l-2.6-8.9H5.2L9.7 14h2.5l4.6-12.7h1.7zm4.8 12.9c.8 0 1.6-.2 2.3-.7v.5h2.3V7.4c0-2.2-1.5-3.5-4-3.5-1.5 0-2.9.5-4 1.3l.9 1.6c.8-.6 1.7-.9 2.7-.9 1.1 0 1.7.5 1.7 1.4v.5c-.5-.2-1.1-.3-1.7-.3-2.1 0-3.4 1-3.4 2.6 0 1.5 1.1 2.6 2.7 2.6l.5.1zm.6-1.8c-.7 0-1.2-.4-1.2-1 0-.7.6-1.1 1.5-1.1.5 0 1 .1 1.4.2v.8c0 .6-.8 1.1-1.7 1.1zm6.5 1.6h2.3V.6h-2.3v13.4zm8.3.2c.8 0 1.6-.2 2.3-.7v.5H43V7.4c0-2.2-1.5-3.5-4-3.5-1.5 0-2.9.5-4 1.3l.9 1.6c.8-.6 1.7-.9 2.7-.9 1.1 0 1.7.5 1.7 1.4v.5c-.5-.2-1.1-.3-1.7-.3-2.1 0-3.4 1-3.4 2.6 0 1.5 1.1 2.6 2.7 2.6l.5.1zm.7-1.8c-.7 0-1.2-.4-1.2-1 0-.7.6-1.1 1.5-1.1.5 0 1 .1 1.4.2v.8c0 .6-.8 1.1-1.7 1.1zm6.8-.1c-.7 0-1.1-.4-1.1-1.2V6.2h2.1V4.1h-2.1V1.5H49V4.1h-1.8v2.1H49v5.4c0 1.9 1 2.8 3 2.8.5 0 1 0 1.5-.2v-2c-.3.1-.6.1-.9.1l-.5.1zm6.2 1.7c.8 0 1.6-.2 2.3-.7v.5h2.3V7.4c0-2.2-1.5-3.5-4-3.5-1.5 0-2.9.5-4 1.3l.9 1.6c.8-.6 1.7-.9 2.7-.9 1.1 0 1.7.5 1.7 1.4v.5c-.5-.2-1.1-.3-1.7-.3-2.1 0-3.4 1-3.4 2.6 0 1.5 1.1 2.6 2.7 2.6l.5.1zm.7-1.8c-.7 0-1.2-.4-1.2-1 0-.7.6-1.1 1.5-1.1.5 0 1 .1 1.4.2v.8c0 .6-.8 1.1-1.7 1.1zm11.2 1.8c2.3 0 4.1-1.5 4.1-3.5 0-1.6-1-2.7-3-3.2l-1.3-.3c-.9-.2-1.3-.6-1.3-1.1 0-.7.6-1.1 1.5-1.1.8 0 1.7.3 2.5.9l1-1.6c-1-.7-2.2-1.1-3.5-1.1-2.2 0-3.8 1.4-3.8 3.2 0 1.6 1 2.7 2.9 3.1l1.3.3c1 .2 1.4.6 1.4 1.2 0 .7-.7 1.2-1.7 1.2-1 0-2-.4-2.9-1.1l-1.1 1.7c1.1.9 2.5 1.4 3.9 1.4z',
+    }],
+  },
+  hulu: {
+    viewBox: '0 0 72 24',
+    paths: [{
+      d: 'M11.3 0v9.2C10 7.9 8.4 7.1 6.6 7.1 3 7.1.3 9.9.3 13.6V24h5.3v-9.8c0-1.7 1-2.7 2.5-2.7s2.5 1 2.5 2.7V24h5.3V0h-4.6zm16.3 7.4v9.8c0 1.7-1 2.7-2.5 2.7s-2.5-1-2.5-2.7V7.4H17v10.3c0 3.7 2.7 6.6 6.3 6.6 1.9 0 3.5-.8 4.7-2.2V24H33V7.4h-5.4zm10.2-7.4V24h5.3V0h-5.3zm16.3 7.4v9.8c0 1.7-1 2.7-2.5 2.7s-2.5-1-2.5-2.7V7.4h-5.3v10.3c0 3.7 2.7 6.6 6.3 6.6 1.9 0 3.5-.8 4.7-2.2V24h4.7V7.4h-5.4z',
+    }],
+  },
+  disney: {
+    viewBox: '0 0 72 22',
+    paths: [{
+      d: 'M6 .5C2.8.5.5 2.8.5 6v10c0 3.2 2.3 5.5 5.5 5.5h9V.5H6zm7.5 17.5H6c-2 0-3.5-1.5-3.5-3.5V6c0-2 1.5-3.5 3.5-3.5h7.5V18zM22 .5h-2v21h2V.5zm6.5 0L24 15l-.5 6.5H21L20.5 15 16 .5h2.5l3.5 12 3.5-12h2.5zm7-0v2h-6v7h5.5v2H29.5v7.5h6v2h-8V.5h8zM46 .5L41 12 46 21.5h-2.5L39 12l4.5-11.5H46zm10 0h-2V16l-8-15.5h-2V21.5h2V6.5l8 15h2V.5zm6 2V21.5h-2V2.5h-5v-2h12v2h-5z',
+    }],
+  },
+  max: {
+    viewBox: '0 0 60 22',
+    paths: [{
+      d: 'M2 0h10l5 11L22 0h10L20 22h-8L2 0zm36 0h10l-12 22H26L36 0zm16 0h6v22h-6V0z',
+    }],
+  },
+  crunchyroll: {
+    viewBox: '0 0 100 20',
+    paths: [{
+      d: 'M10 0C4.5 0 0 4.5 0 10s4.5 10 10 10 10-4.5 10-10S15.5 0 10 0zm0 16c-3.3 0-6-2.7-6-6s2.7-6 6-6 6 2.7 6 6-2.7 6-6 6zm6-6c0 3.3-2.7 6-6 6V4c3.3 0 6 2.7 6 6zM26 4h4v2.5c.7-1.7 2.2-2.8 4-2.8V7.5c-2.2-.2-4 1-4 3.5V16h-4V4zm10 0h4v1.8c.8-1.3 2.2-2 4-2 3.3 0 5 2 5 5.5V16h-4v-6c0-1.8-.8-2.8-2.3-2.8-1.5 0-2.7 1-2.7 2.8V16h-4V4zm15.5 9c.5 1.8 1.8 2.8 3.5 2.8 1.3 0 2.3-.5 3-1.5l3 1.8C59.5 17.5 57.5 19 55 19c-4 0-7-2.8-7-7.5C48 7 50.8 4 55 4c4 0 6.5 3 6.5 7.5v1.5h-10zm0-3h6c-.3-1.8-1.5-3-3-3s-2.7 1.2-3 3zm14.5-6h4v1.8c.8-1.3 2.2-2 4-2 3.3 0 5 2 5 5.5V16h-4v-6c0-1.8-.8-2.8-2.3-2.8-1.5 0-2.7 1-2.7 2.8V16h-4V4zm15 0h4v12h-4V4zm0-4h4v3h-4V0zm7 4h4v12h-4V4zm0-4h4v3h-4V0z',
+    }],
+  },
+};
+
 const PROVIDERS: ProviderConfig[] = [
-  {
-    id: 'netflix',
-    tmdbId: 8,
-    name: 'Netflix',
-    // TMDB official provider logo
-    iconUrl: 'https://image.tmdb.org/t/p/original/t2yyOv40HZeVlLjYsCsPHnWLk4W.jpg',
-  },
-  {
-    id: 'prime',
-    tmdbId: 9,
-    name: 'Prime Video',
-    iconUrl: 'https://image.tmdb.org/t/p/original/emthp39XA2YScoYL1p0sdbAH2WA.jpg',
-  },
-  {
-    id: 'appletv',
-    tmdbId: 350,
-    name: 'Apple TV+',
-    iconUrl: 'https://image.tmdb.org/t/p/original/peURlLlr8jggOwK53fJ5wdQl05y.jpg',
-  },
-  {
-    id: 'hulu',
-    tmdbId: 15,
-    name: 'Hulu',
-    iconUrl: 'https://image.tmdb.org/t/p/original/zxrVdFjIjLqkfnwyghnfywTn3Lh.jpg',
-  },
-  {
-    id: 'disney',
-    tmdbId: 337,
-    name: 'Disney+',
-    iconUrl: 'https://image.tmdb.org/t/p/original/7rwgEs15tFwyR9NPQ5vpzxTj19Q.jpg',
-  },
-  {
-    id: 'max',
-    tmdbId: 1899,
-    name: 'Max',
-    iconUrl: 'https://image.tmdb.org/t/p/original/Ajqyt5aNxNx9jp9MukZMVjMEzik.jpg',
-  },
-  {
-    id: 'crunchyroll',
-    tmdbId: 283,
-    name: 'Crunchyroll',
-    iconUrl: 'https://image.tmdb.org/t/p/original/8Gt1iClBlzTeQs8WQm8UrCoIxnQ.jpg',
-  },
+  { id: 'netflix',     tmdbId: 8,   name: 'Netflix',     svg: PROVIDER_SVGS.netflix },
+  { id: 'prime',       tmdbId: 9,   name: 'Prime Video', svg: PROVIDER_SVGS.prime },
+  { id: 'appletv',     tmdbId: 350, name: 'Apple TV+',   svg: PROVIDER_SVGS.appletv },
+  { id: 'hulu',        tmdbId: 15,  name: 'Hulu',        svg: PROVIDER_SVGS.hulu },
+  { id: 'disney',      tmdbId: 337, name: 'Disney+',     svg: PROVIDER_SVGS.disney },
+  { id: 'max',         tmdbId: 1899,name: 'Max',         svg: PROVIDER_SVGS.max },
+  { id: 'crunchyroll', tmdbId: 283, name: 'Crunchyroll', svg: PROVIDER_SVGS.crunchyroll },
 ];
 
-// Provider logo renderer — square rounded logo image from TMDB CDN — always B&W
+// Provider logo renderer — inline SVG wordmark, always crisp B&W white
 const ProviderLogo = memo(function ProviderLogo({
-  provider, size = 44,
-}: { provider: ProviderConfig; size?: number }) {
-  const [err, setErr] = useState(false);
-
-  if (provider.iconUrl && !err) {
-    return (
-      <img
-        src={provider.iconUrl}
-        alt={provider.name}
-        width={size}
-        height={size}
-        onError={() => setErr(true)}
-        style={{
-          objectFit: 'cover',
-          display: 'block',
-          borderRadius: Math.round(size * 0.22),
-          width: size,
-          height: size,
-          filter: 'grayscale(1) brightness(1.05)',
-        }}
-      />
-    );
-  }
-
-  // Text fallback
+  provider, width = 64, height = 18,
+}: { provider: ProviderConfig; width?: number; height?: number }) {
   return (
-    <span style={{
-      fontSize: 9, fontWeight: 900, color: 'white',
-      letterSpacing: '0.05em', textTransform: 'uppercase',
-      fontFamily: '"Inter", "Arial Black", sans-serif', textAlign: 'center',
-      lineHeight: 1.1,
-    }}>{provider.name}</span>
+    <svg
+      viewBox={provider.svg.viewBox}
+      width={width}
+      height={height}
+      fill="white"
+      aria-label={provider.name}
+      style={{ display: 'block', flexShrink: 0 }}
+    >
+      {provider.svg.paths.map((p, i) => (
+        <path key={i} d={p.d} fill="white" />
+      ))}
+    </svg>
   );
 });
 
@@ -675,9 +667,8 @@ function TopTenRail({
   );
 }
 
-// ─── PROVIDER SHOWCASE (Netflix / Prime Top 10 — landscape MediaCards) ────────
-// "in between" the rails, NOT the TopTenRail format
-// Shows ranked landscape cards with provider logo badge + number
+// ─── PROVIDER SHOWCASE — same look as TopTenRail ─────────────────────────────
+// Full-width 3D rounded-rect cards, ranked, blur-on-swipe, same height
 function ProviderShowcase({
   provider, items, loading, onItemClick,
 }: {
@@ -687,115 +678,165 @@ function ProviderShowcase({
   onItemClick: (item: CineItem) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  // Items are now real, provider-specific TMDB discover results (already
-  // fetched and capped at 10 upstream) — no more hash-filtering needed.
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
   const filtered = items.filter(i => i.backdrop || i.poster).slice(0, 10);
 
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    let t: ReturnType<typeof setTimeout>;
+    const onScroll = () => {
+      setIsSwiping(true);
+      clearTimeout(t);
+      t = setTimeout(() => setIsSwiping(false), 250);
+      const idx = Math.round(el.scrollLeft / el.clientWidth);
+      setActiveIdx(Math.max(0, Math.min(idx, filtered.length - 1)));
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => { el.removeEventListener('scroll', onScroll); clearTimeout(t); };
+  }, [filtered.length]);
+
   const slide = (dir: 'l' | 'r') => {
-    scrollRef.current?.scrollBy({ left: dir === 'l' ? -290 : 290, behavior: 'smooth' });
+    scrollRef.current?.scrollBy({
+      left: dir === 'l' ? -scrollRef.current.clientWidth : scrollRef.current.clientWidth,
+      behavior: 'smooth',
+    });
   };
 
-  if (loading) {
-    return (
-      <section style={{ marginBottom: 48, paddingInline: '4vw' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: C.elevated }} className="cv-sk" />
-          <div style={{ width: 140, height: 16, borderRadius: 4, background: C.elevated }} className="cv-sk" />
-        </div>
-        <SkeletonLandscape />
-      </section>
-    );
-  }
+  if (loading) return <div style={{ height: 300, marginInline: '4vw', borderRadius: 24, marginBottom: 48 }} className="cv-sk" />;
   if (!filtered.length) return null;
 
   return (
     <section style={{ marginBottom: 48, paddingInline: '4vw' }}>
-      {/* Header — B&W monochrome, no brand color */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        {/* Provider icon pill */}
+      {/* Header with SVG logo */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
         <div style={{
-          width: 36, height: 36, borderRadius: 10,
-          background: C.elevated,
-          border: `1px solid ${C.border}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0,
+          height: 28, opacity: 0.7,
         }}>
-          <ProviderLogo provider={provider} size={20} />
+          <ProviderLogo provider={provider} width={72} height={22} />
         </div>
-        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.text, letterSpacing: '-0.025em', fontFamily: '"Outfit", "Inter", system-ui, sans-serif' }}>
-          Most Watched on <span style={{ color: C.accent }}>{provider.name}</span>
+        <h2 style={{
+          margin: 0, fontSize: 'clamp(15px, 3.8vw, 20px)', fontWeight: 800,
+          color: C.text, letterSpacing: '-0.025em',
+          fontFamily: '"Outfit", "Inter", system-ui, sans-serif',
+        }}>
+          Top 10
         </h2>
       </div>
 
-      {/* Landscape MediaCards with rank overlay */}
+      {/* Same 3D card carousel as TopTenRail */}
       <div style={{ position: 'relative' }}>
-        <div style={{ position: 'absolute', left: -10, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
+        <div style={{
+          position: 'absolute', inset: '-24px -8px', borderRadius: 32,
+          background: `radial-gradient(ellipse at 50% 40%, rgba(255,255,255,${isSwiping ? 0.16 : 0.08}) 0%, transparent 70%)`,
+          transition: 'opacity 0.4s ease', pointerEvents: 'none', zIndex: 0,
+        }} />
+        <div style={{ position: 'absolute', left: -14, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
           <GlassArrow dir="l" onClick={() => slide('l')} />
         </div>
-        <div ref={scrollRef} style={{
-          display: 'flex', gap: 10, overflowX: 'auto',
-          scrollbarWidth: 'none', scrollSnapType: 'x proximity', paddingBottom: 2,
-        }}>
-          {filtered.map((item, idx) => (
-            <div
-              key={item.tmdb_id}
-              onClick={() => onItemClick(item)}
-              style={{
-                flexShrink: 0, width: 260, height: 160, borderRadius: 14,
-                overflow: 'hidden', position: 'relative', cursor: 'pointer',
-                scrollSnapAlign: 'start', background: C.surface,
-                boxShadow: '0 6px 24px rgba(0,0,0,0.5)',
-                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.transform = 'scale(1.03)';
-                (e.currentTarget as HTMLElement).style.boxShadow = '0 12px 40px rgba(0,0,0,0.7)';
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
-                (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 24px rgba(0,0,0,0.5)';
-              }}
-            >
-              <img
-                src={item.backdrop || item.poster} alt=""
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-              {/* Gradient overlays */}
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(7,9,13,0.7) 0%, transparent 55%), linear-gradient(to top, rgba(7,9,13,0.9) 0%, transparent 50%)' }} />
-
-              {/* Provider logo badge — top left, small, monochrome */}
-              <div style={{
-                position: 'absolute', top: 9, left: 9,
-                width: 26, height: 26, borderRadius: 7,
-                background: 'rgba(15,19,24,0.85)',
-                backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
-                border: `1px solid ${C.border}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <ProviderLogo provider={provider} size={14} />
-              </div>
-
-              {/* Rank number */}
-              <div style={{
-                position: 'absolute', bottom: 6, left: 10,
-                fontSize: 48, fontWeight: 900, fontStyle: 'italic',
-                background: 'linear-gradient(to bottom, rgba(255,255,255,0.88) 20%, rgba(255,255,255,0.08) 100%)',
-                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                lineHeight: 1, userSelect: 'none', letterSpacing: '-0.04em',
-              }}>{idx + 1}</div>
-
-              {/* Title + meta */}
-              <div style={{ position: 'absolute', bottom: 10, left: 58, right: 10 }}>
-                <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#fff', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{item.title}</p>
-                <p style={{ margin: '2px 0 0', fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>
-                  {item.type === 'movie' ? 'Film' : 'Series'} · {item.year}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{ position: 'absolute', right: -10, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
+        <div style={{ position: 'absolute', right: -14, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
           <GlassArrow dir="r" onClick={() => slide('r')} />
+        </div>
+
+        <div
+          ref={scrollRef}
+          style={{
+            display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory',
+            scrollbarWidth: 'none', gap: 12, paddingBlock: 12, position: 'relative', zIndex: 1,
+          }}
+        >
+          {filtered.map((item, idx) => {
+            const dist = Math.abs(idx - activeIdx);
+            const isActive = idx === activeIdx;
+            const blurAmount = isSwiping && !isActive ? Math.min(dist * 4, 10) : 0;
+            const scale = isActive ? 1 : isSwiping ? 0.94 - dist * 0.012 : 0.96;
+            return (
+              <div
+                key={item.tmdb_id}
+                onClick={() => onItemClick(item)}
+                style={{
+                  flexShrink: 0, width: '100%', height: 'min(300px, 54vw)',
+                  scrollSnapAlign: 'start', scrollSnapStop: 'always',
+                  position: 'relative', cursor: 'pointer', borderRadius: 22,
+                  overflow: 'hidden', background: C.surface,
+                  boxShadow: isActive
+                    ? `0 8px 0 rgba(0,0,0,0.5), 0 16px 48px rgba(0,0,0,${isSwiping ? 0.9 : 0.7}), 0 0 0 1px rgba(255,255,255,0.07)`
+                    : '0 4px 0 rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04)',
+                  filter: blurAmount > 0 ? `blur(${blurAmount}px)` : 'none',
+                  transform: `scale(${scale}) ${!isActive && isSwiping ? `perspective(800px) rotateY(${idx < activeIdx ? '4' : '-4'}deg)` : ''}`,
+                  transition: isSwiping
+                    ? 'filter 0.08s ease, transform 0.08s ease, box-shadow 0.15s ease'
+                    : 'filter 0.35s cubic-bezier(0.2,0.8,0.2,1), transform 0.35s cubic-bezier(0.2,0.8,0.2,1), box-shadow 0.35s ease',
+                  willChange: 'filter, transform',
+                }}
+              >
+                <img
+                  src={item.backdrop || item.poster} alt=""
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }}
+                />
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(7,9,13,0.97) 0%, rgba(7,9,13,0.38) 55%, transparent 100%)' }} />
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(7,9,13,0.5) 0%, transparent 55%)' }} />
+
+                {/* Provider logo watermark top-right */}
+                <div style={{
+                  position: 'absolute', top: 12, right: 12,
+                  opacity: 0.55, display: 'flex', alignItems: 'center',
+                }}>
+                  <ProviderLogo provider={provider} width={48} height={14} />
+                </div>
+
+                {/* Bottom content */}
+                <div style={{ position: 'absolute', left: '4vw', bottom: 18, right: '4vw', display: 'flex', alignItems: 'flex-end', gap: 14, zIndex: 3 }}>
+                  <span style={{
+                    fontSize: 'clamp(64px, 13vw, 96px)', fontWeight: 900, lineHeight: 0.72,
+                    fontStyle: 'italic',
+                    fontFamily: '"Outfit", "Inter", system-ui, sans-serif',
+                    background: 'linear-gradient(to bottom, rgba(255,255,255,0.92) 20%, rgba(255,255,255,0.06) 100%)',
+                    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                    letterSpacing: '-0.05em', userSelect: 'none', flexShrink: 0,
+                  }}>{idx + 1}</span>
+                  <div style={{ flex: 1, paddingBottom: 4, minWidth: 0 }}>
+                    <h3 style={{
+                      margin: '0 0 5px', fontSize: 'clamp(14px, 3.8vw, 20px)', fontWeight: 700,
+                      color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      fontFamily: '"Outfit", "Inter", system-ui, sans-serif', letterSpacing: '-0.02em',
+                    }}>{item.title}</h3>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 11, color: C.textSub }}>
+                      <span style={{ background: 'rgba(248,249,251,0.09)', padding: '2px 7px', borderRadius: 5, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: C.text, letterSpacing: '0.04em' }}>
+                        {item.type === 'movie' ? 'Movie' : 'TV'}
+                      </span>
+                      <span>{item.year}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Star size={10} fill="#FBBF24" color="#FBBF24" /> {item.rating.toFixed(1)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dot indicators */}
+                <div style={{ position: 'absolute', bottom: 12, right: 14, display: 'flex', gap: 4, zIndex: 5 }}>
+                  {filtered.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={e => {
+                        e.stopPropagation();
+                        const el = scrollRef.current;
+                        if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+                      }}
+                      style={{
+                        width: i === activeIdx ? 20 : 4, height: 4, borderRadius: 2,
+                        background: i === activeIdx ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.22)',
+                        border: 'none', cursor: 'pointer', padding: 0,
+                        transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1), background 0.25s ease',
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>
@@ -1029,7 +1070,7 @@ function OttSelector({
   );
 }
 
-// 3D press button for each provider — real logo, brand glow, solid raised feel
+// Provider pill button — horizontal card with SVG wordmark, premium raised look
 const ProviderButton = memo(function ProviderButton({
   provider, selected, brandColor, onClick,
 }: {
@@ -1049,59 +1090,61 @@ const ProviderButton = memo(function ProviderButton({
       title={provider.name}
       style={{
         flexShrink: 0,
-        width: 76,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 7,
+        justifyContent: 'center',
+        gap: 10,
         cursor: 'pointer',
-        background: 'none',
-        border: 'none',
-        padding: '2px 0 4px',
+        background: selected ? 'rgba(255,255,255,0.08)' : 'rgba(15,19,24,0.9)',
+        border: `1.5px solid ${selected ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.07)'}`,
+        borderRadius: 18,
+        padding: '14px 10px',
+        width: 86,
+        height: 72,
         fontFamily: 'inherit',
         WebkitTapHighlightColor: 'transparent',
-        transform: pressed ? 'scale(0.93) translateY(2px)' : selected ? 'scale(1.06) translateY(-2px)' : 'scale(1)',
-        transition: 'transform 0.12s ease',
+        // 3D raised: top rim + bottom shadow
+        boxShadow: selected
+          ? `0 0 0 1.5px ${brandColor}55, 0 5px 0 rgba(0,0,0,0.55), 0 8px 24px ${brandColor}33`
+          : '0 4px 0 rgba(0,0,0,0.5), 0 6px 18px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)',
+        transform: pressed
+          ? 'scale(0.94) translateY(3px)'
+          : selected
+            ? 'translateY(-3px)'
+            : 'translateY(0)',
+        transition: 'transform 0.13s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease',
+        position: 'relative',
+        overflow: 'hidden',
       }}
     >
-      {/* Logo tile — raised 3D card */}
+      {/* Top rim shine */}
       <div style={{
-        width: 58,
-        height: 58,
-        borderRadius: 16,
+        position: 'absolute', top: 0, left: 0, right: 0, height: 1,
+        background: 'rgba(255,255,255,0.12)',
+        borderRadius: '18px 18px 0 0',
+        pointerEvents: 'none',
+      }} />
+
+      {/* SVG wordmark */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        opacity: selected ? 1 : 0.55,
+        transition: 'opacity 0.18s ease',
+        maxWidth: 66,
         overflow: 'hidden',
-        position: 'relative',
-        // 3D raised look: top highlight + bottom shadow
-        boxShadow: selected
-          ? `0 0 0 2.5px ${brandColor}, 0 6px 0 ${adjustColor(brandColor, -40)}, 0 8px 24px ${brandColor}55`
-          : '0 4px 0 #090c12, 0 6px 16px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)',
-        transition: 'box-shadow 0.2s ease, transform 0.12s ease',
-        background: '#111418',
       }}>
-        <ProviderLogo provider={provider} size={58} />
-        {/* Top shine */}
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, height: '45%',
-          background: 'linear-gradient(to bottom, rgba(255,255,255,0.1) 0%, transparent 100%)',
-          borderRadius: '16px 16px 0 0',
-          pointerEvents: 'none',
-        }} />
+        <ProviderLogo provider={provider} width={66} height={20} />
       </div>
 
-      {/* Label below — highlighted when selected */}
-      <span style={{
-        fontSize: 9,
-        fontWeight: selected ? 700 : 500,
-        color: selected ? '#fff' : C.textSub,
-        letterSpacing: '0.02em',
-        textAlign: 'center',
-        lineHeight: 1.2,
-        maxWidth: 70,
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-        transition: 'color 0.2s',
-      }}>{provider.name}</span>
+      {/* Active dot indicator */}
+      {selected && (
+        <div style={{
+          width: 4, height: 4, borderRadius: '50%',
+          background: 'rgba(255,255,255,0.8)',
+          flexShrink: 0,
+        }} />
+      )}
     </button>
   );
 });
@@ -2033,20 +2076,6 @@ export default function CineverseHome() {
           currentTab={currentOttTab}
           onTabChange={tab => setCurrentOttTab(tab)}
         />
-
-        {/* ── 8b. Browse by Genre ── */}
-        <BrowseByGenre onGenreSelect={handleGenreSelect} />
-
-        {/* ── 8c. Genre Results Rail (appears when a genre is selected) ── */}
-        {selectedGenre && (
-          <Rail
-            title={`${selectedGenre.label} Films`}
-            icon={<Sparkles size={14} />}
-            items={genreItems}
-            loading={loadingGenre}
-            onItemClick={goPlayItem}
-          />
-        )}
 
         {/* ── 9. Provider / Tab Content Rails ── */}
         {loadingProvider ? (
