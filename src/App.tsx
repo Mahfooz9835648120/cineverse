@@ -2,7 +2,9 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import PlayerPage from './pages/PlayerPage';
-
+import BrowsePage from './pages/BrowsePage';
+// ...
+<Route path="/browse" element={<BrowsePage />} />
 export default function App() {
   return (
     <BrowserRouter>
