@@ -1,9 +1,12 @@
 // src/pages/CineverseHome.tsx
-// Cineverse — Home Page — GOD MODE REWRITE v3
+// Cineverse — Home Page — GOD MODE REWRITE v4
 // ✦ Floating pill glassmorphic navbar (rounded rect, margins, true glass)
-// ✦ Real CDN provider logos (Simple Icons) with B&W monochrome
+// ✦ Real TMDB provider logos — B&W grayscale monochrome
 // ✦ TMDB discover fetch per provider (real loading state)
 // ✦ Netflix + Prime Top 10 as MediaCards (landscape, between rails)
+// ✦ 3D rounded-rect TopTen cards with blur-on-swipe + shadow glow
+// ✦ Browse by Genre section below Browse by Provider
+// ✦ Premium typography: Outfit display + Inter body
 // ✦ Disclaimer section + floating bottom dock
 
 import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
@@ -12,7 +15,7 @@ import {
   Play, Search, Film, Tv, TrendingUp, Star,
   ChevronLeft, ChevronRight, Clock, Trash2,
   Home, Compass, AlertCircle, Shield,
-  Flame, Laugh, Ghost, Rocket, Heart, Drama,
+  Flame, Laugh, Ghost, Rocket, Heart, Drama, Sparkles,
 } from 'lucide-react';
 import { tmdb, getTMDBImage } from '@/lib/tmdb';
 
@@ -152,7 +155,7 @@ const PROVIDERS: ProviderConfig[] = [
   },
 ];
 
-// Provider logo renderer — square rounded logo image from TMDB CDN
+// Provider logo renderer — square rounded logo image from TMDB CDN — always B&W
 const ProviderLogo = memo(function ProviderLogo({
   provider, size = 44,
 }: { provider: ProviderConfig; size?: number }) {
@@ -172,6 +175,7 @@ const ProviderLogo = memo(function ProviderLogo({
           borderRadius: Math.round(size * 0.22),
           width: size,
           height: size,
+          filter: 'grayscale(1) brightness(1.05)',
         }}
       />
     );
@@ -182,7 +186,7 @@ const ProviderLogo = memo(function ProviderLogo({
     <span style={{
       fontSize: 9, fontWeight: 900, color: 'white',
       letterSpacing: '0.05em', textTransform: 'uppercase',
-      fontFamily: "'Arial Black', sans-serif", textAlign: 'center',
+      fontFamily: '"Inter", "Arial Black", sans-serif', textAlign: 'center',
       lineHeight: 1.1,
     }}>{provider.name}</span>
   );
@@ -429,7 +433,14 @@ function Rail({
     <section style={{ marginBottom: 40 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingInline: '4vw', marginBottom: 14 }}>
         {icon && <span style={{ color: C.textSub }}>{icon}</span>}
-        <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: C.text, letterSpacing: '-0.01em' }}>{title}</h2>
+        <h2 style={{
+          margin: 0,
+          fontSize: 'clamp(14px, 3.8vw, 17px)',
+          fontWeight: 700,
+          color: C.text,
+          letterSpacing: '-0.02em',
+          fontFamily: '"Outfit", "Inter", system-ui, sans-serif',
+        }}>{title}</h2>
       </div>
       <div style={{ position: 'relative' }}>
         <div style={{ position: 'absolute', left: '1vw', top: '50%', transform: 'translateY(-50%)', zIndex: 4 }}>
@@ -452,28 +463,35 @@ function Rail({
   );
 }
 
-// ─── TOP 10 BANNER RAIL ───────────────────────────────────────────────────────
+// ─── TOP 10 BANNER RAIL — 3D ROUNDED RECT WITH SWIPE BLUR ───────────────────
+// Cards are 3D raised rectangles. During swipe: card being exited blurs out,
+// incoming card unblurs. Background glow follows active card.
 function TopTenRail({
   title, items, loading, onItemClick,
 }: { title: string; items: CineItem[]; loading: boolean; onItemClick: (item: CineItem) => void }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeIdx, setActiveIdx] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
   const top10 = items.slice(0, 10);
 
+  // Track scroll to detect active slide + swipe state
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const slides = Array.from(el.children) as HTMLElement[];
-    const obs = new IntersectionObserver(entries => {
-      entries.forEach(e => {
-        if (e.isIntersecting) {
-          const i = slides.indexOf(e.target as HTMLElement);
-          if (i !== -1) setActiveIdx(i);
-        }
-      });
-    }, { root: el, threshold: 0.6 });
-    slides.forEach(s => obs.observe(s));
-    return () => obs.disconnect();
+    let scrollTimer: ReturnType<typeof setTimeout>;
+
+    const onScroll = () => {
+      setIsSwiping(true);
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(() => setIsSwiping(false), 250);
+
+      const cardW = el.clientWidth;
+      const idx = Math.round(el.scrollLeft / cardW);
+      setActiveIdx(Math.max(0, Math.min(idx, top10.length - 1)));
+    };
+
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => { el.removeEventListener('scroll', onScroll); clearTimeout(scrollTimer); };
   }, [top10.length]);
 
   const slide = (dir: 'l' | 'r') => {
@@ -484,82 +502,173 @@ function TopTenRail({
     });
   };
 
-  if (loading) return <div style={{ height: 280, marginInline: '4vw', borderRadius: 18, marginBottom: 42 }} className="cv-sk" />;
+  if (loading) return <div style={{ height: 280, marginInline: '4vw', borderRadius: 24, marginBottom: 48 }} className="cv-sk" />;
   if (!top10.length) return null;
 
+  // Ambient glow colour from active item (subtle white since we don't know brand colour)
+  const glowOpacity = isSwiping ? 0.18 : 0.1;
+
   return (
-    <section style={{ marginBottom: 44, paddingInline: '4vw' }}>
-      <h2 style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 800, color: C.text, letterSpacing: '-0.02em' }}>
+    <section style={{ marginBottom: 48, paddingInline: '4vw' }}>
+      {/* Section heading — Outfit display font */}
+      <h2 style={{
+        margin: '0 0 16px',
+        fontSize: 'clamp(17px, 4.5vw, 22px)',
+        fontWeight: 800,
+        color: C.text,
+        letterSpacing: '-0.03em',
+        fontFamily: '"Outfit", "Inter", system-ui, sans-serif',
+      }}>
         Top 10 {title}
       </h2>
-      <div style={{ position: 'relative', borderRadius: 18, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.7)' }}>
-        <div style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
+
+      {/* 3D card carousel wrapper */}
+      <div style={{ position: 'relative' }}>
+        {/* Ambient background glow that pulses on swipe */}
+        <div style={{
+          position: 'absolute',
+          inset: '-24px -8px',
+          borderRadius: 32,
+          background: `radial-gradient(ellipse at 50% 40%, rgba(255,255,255,${glowOpacity}) 0%, transparent 70%)`,
+          transition: 'opacity 0.4s ease',
+          pointerEvents: 'none',
+          zIndex: 0,
+        }} />
+
+        {/* Arrow buttons */}
+        <div style={{ position: 'absolute', left: -14, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
           <GlassArrow dir="l" onClick={() => slide('l')} />
         </div>
-        <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
+        <div style={{ position: 'absolute', right: -14, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
           <GlassArrow dir="r" onClick={() => slide('r')} />
         </div>
 
-        <div ref={scrollRef} style={{ display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}>
-          {top10.map((item, idx) => (
-            <div
-              key={item.tmdb_id}
-              onClick={() => onItemClick(item)}
-              style={{
-                flexShrink: 0, width: '100%', height: 'min(310px, 56vw)',
-                position: 'relative', scrollSnapAlign: 'start', cursor: 'pointer',
-                overflow: 'hidden', background: C.surface,
-              }}
-            >
-              <img src={item.backdrop || item.poster} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }} />
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(7,9,13,0.97) 0%, rgba(7,9,13,0.38) 55%, transparent 100%)' }} />
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(7,9,13,0.55) 0%, transparent 60%)' }} />
-              <div style={{ position: 'absolute', left: '4vw', bottom: 20, right: '4vw', display: 'flex', alignItems: 'flex-end', gap: 16, zIndex: 3 }}>
-                <span style={{
-                  fontSize: 'clamp(68px, 13vw, 100px)', fontWeight: 900, lineHeight: 0.72,
-                  fontStyle: 'italic',
-                  background: 'linear-gradient(to bottom, rgba(255,255,255,0.9) 25%, rgba(255,255,255,0.1) 100%)',
-                  WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                  letterSpacing: '-0.05em', userSelect: 'none',
-                }}>{idx + 1}</span>
-                <div style={{ flex: 1, paddingBottom: 4, minWidth: 0 }}>
-                  <h3 style={{ margin: '0 0 5px', fontSize: 'clamp(15px, 4vw, 22px)', fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {item.title}
-                  </h3>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 11, color: C.textSub }}>
-                    <span style={{ background: 'rgba(248,249,251,0.09)', padding: '1px 6px', borderRadius: 4, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: C.text }}>
-                      {item.type === 'movie' ? 'Movie' : 'TV'}
-                    </span>
-                    <span>{item.year}</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Star size={10} fill="#FBBF24" color="#FBBF24" /> {item.rating.toFixed(1)}
-                    </span>
+        {/* Scrollable track */}
+        <div
+          ref={scrollRef}
+          style={{
+            display: 'flex',
+            overflowX: 'auto',
+            scrollSnapType: 'x mandatory',
+            scrollbarWidth: 'none',
+            gap: 12,
+            paddingBlock: 12,
+            position: 'relative',
+            zIndex: 1,
+          }}
+        >
+          {top10.map((item, idx) => {
+            const dist = Math.abs(idx - activeIdx);
+            const isActive = idx === activeIdx;
+            // Blur scales with distance from active during swipe
+            const blurAmount = isSwiping && !isActive ? Math.min(dist * 4, 10) : 0;
+            const scale = isActive ? 1 : isSwiping ? 0.94 - dist * 0.012 : 0.96;
+            const shadowIntensity = isActive ? (isSwiping ? 0.9 : 0.7) : 0.3;
+
+            return (
+              <div
+                key={item.tmdb_id}
+                onClick={() => onItemClick(item)}
+                style={{
+                  flexShrink: 0,
+                  width: '100%',
+                  height: 'min(300px, 54vw)',
+                  scrollSnapAlign: 'start',
+                  scrollSnapStop: 'always',
+                  position: 'relative',
+                  cursor: 'pointer',
+                  borderRadius: 22,
+                  overflow: 'hidden',
+                  background: C.surface,
+                  // 3D raised shadow — glows more when active
+                  boxShadow: isActive
+                    ? `0 8px 0 rgba(0,0,0,0.5), 0 16px 48px rgba(0,0,0,${shadowIntensity}), 0 0 0 1px rgba(255,255,255,0.07), 0 -1px 0 rgba(255,255,255,0.04) inset`
+                    : `0 4px 0 rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04)`,
+                  // Blur leaving cards, unblur entering
+                  filter: blurAmount > 0 ? `blur(${blurAmount}px)` : 'none',
+                  // 3D perspective tilt + scale
+                  transform: `scale(${scale}) ${!isActive && isSwiping ? `perspective(800px) rotateY(${idx < activeIdx ? '4' : '-4'}deg)` : ''}`,
+                  transition: isSwiping
+                    ? 'filter 0.08s ease, transform 0.08s ease, box-shadow 0.15s ease'
+                    : 'filter 0.35s cubic-bezier(0.2,0.8,0.2,1), transform 0.35s cubic-bezier(0.2,0.8,0.2,1), box-shadow 0.35s ease',
+                  willChange: 'filter, transform',
+                }}
+              >
+                <img
+                  src={item.backdrop || item.poster}
+                  alt=""
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }}
+                />
+                {/* Gradient overlays */}
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(7,9,13,0.97) 0%, rgba(7,9,13,0.38) 55%, transparent 100%)' }} />
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(7,9,13,0.5) 0%, transparent 55%)' }} />
+
+                {/* Bottom content */}
+                <div style={{ position: 'absolute', left: '4vw', bottom: 18, right: '4vw', display: 'flex', alignItems: 'flex-end', gap: 14, zIndex: 3 }}>
+                  {/* Big rank number */}
+                  <span style={{
+                    fontSize: 'clamp(64px, 13vw, 96px)',
+                    fontWeight: 900,
+                    lineHeight: 0.72,
+                    fontStyle: 'italic',
+                    fontFamily: '"Outfit", "Inter", system-ui, sans-serif',
+                    background: 'linear-gradient(to bottom, rgba(255,255,255,0.92) 20%, rgba(255,255,255,0.06) 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    letterSpacing: '-0.05em',
+                    userSelect: 'none',
+                    flexShrink: 0,
+                  }}>{idx + 1}</span>
+
+                  <div style={{ flex: 1, paddingBottom: 4, minWidth: 0 }}>
+                    <h3 style={{
+                      margin: '0 0 5px',
+                      fontSize: 'clamp(14px, 3.8vw, 20px)',
+                      fontWeight: 700,
+                      color: C.text,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      fontFamily: '"Outfit", "Inter", system-ui, sans-serif',
+                      letterSpacing: '-0.02em',
+                    }}>
+                      {item.title}
+                    </h3>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 11, color: C.textSub }}>
+                      <span style={{ background: 'rgba(248,249,251,0.09)', padding: '2px 7px', borderRadius: 5, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: C.text, letterSpacing: '0.04em' }}>
+                        {item.type === 'movie' ? 'Movie' : 'TV'}
+                      </span>
+                      <span>{item.year}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Star size={10} fill="#FBBF24" color="#FBBF24" /> {item.rating.toFixed(1)}
+                      </span>
+                    </div>
                   </div>
                 </div>
+
+                {/* Dot indicators — bottom right */}
+                <div style={{ position: 'absolute', bottom: 12, right: 14, display: 'flex', gap: 4, zIndex: 5 }}>
+                  {top10.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const el = scrollRef.current;
+                        if (!el) return;
+                        el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+                      }}
+                      style={{
+                        width: i === activeIdx ? 20 : 4, height: 4, borderRadius: 2,
+                        background: i === activeIdx ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.22)',
+                        border: 'none', cursor: 'pointer', padding: 0,
+                        transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1), background 0.25s ease',
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
-              {/* Dot indicators */}
-              <div style={{ position: 'absolute', bottom: 10, right: 16, display: 'flex', gap: 4, zIndex: 5 }}>
-                {top10.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const el = scrollRef.current;
-                      if (!el) return;
-                      const s = el.children[i] as HTMLElement;
-                      s?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
-                    }}
-                    style={{
-                      width: i === activeIdx ? 18 : 4, height: 4, borderRadius: 2,
-                      background: i === activeIdx ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.25)',
-                      border: 'none', cursor: 'pointer', padding: 0,
-                      transition: 'width 0.22s ease, background 0.22s ease',
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>
@@ -613,7 +722,7 @@ function ProviderShowcase({
         }}>
           <ProviderLogo provider={provider} size={20} />
         </div>
-        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.text, letterSpacing: '-0.02em' }}>
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.text, letterSpacing: '-0.025em', fontFamily: '"Outfit", "Inter", system-ui, sans-serif' }}>
           Most Watched on <span style={{ color: C.accent }}>{provider.name}</span>
         </h2>
       </div>
@@ -731,6 +840,7 @@ function OTTMarquee() {
         color: C.textSub,
         letterSpacing: '0.12em',
         textTransform: 'uppercase',
+        fontFamily: '"Inter", system-ui, sans-serif',
       }}>
         All your streaming OTTs at one place
       </p>
@@ -812,7 +922,7 @@ const OTTLogoChip = memo(function OTTLogoChip({ logo }: { logo: { name: string; 
             loading="lazy"
             draggable={false}
             onError={() => setErr(true)}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', userSelect: 'none' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', userSelect: 'none', filter: 'grayscale(1) brightness(1.05)' }}
           />
         )}
         {/* Shine overlay */}
@@ -847,8 +957,16 @@ function OttSelector({
       {/* Section header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
         <div style={{ width: 3, height: 16, borderRadius: 2, background: 'rgba(255,255,255,0.35)' }} />
-        <h2 style={{ margin: 0, fontSize: 11, fontWeight: 700, color: C.textSub, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-          Streaming Providers
+        <h2 style={{
+          margin: 0,
+          fontSize: 11,
+          fontWeight: 700,
+          color: C.textSub,
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          fontFamily: '"Inter", system-ui, sans-serif',
+        }}>
+          Browse by Provider
         </h2>
       </div>
 
@@ -997,6 +1115,119 @@ function adjustColor(hex: string, amount: number): string {
   return `rgb(${r},${g},${b})`;
 }
 
+// ─── BROWSE BY GENRE SECTION ──────────────────────────────────────────────────
+// Premium genre grid with icon + label tiles — dark minimal aesthetic
+const GENRE_TILES: { id: number; label: string; icon: React.ReactNode; movieId?: number; tvId?: number }[] = [
+  { id: 28,    label: 'Action',        icon: <Flame size={18} />,   movieId: 28 },
+  { id: 35,    label: 'Comedy',        icon: <Laugh size={18} />,   movieId: 35 },
+  { id: 27,    label: 'Horror',        icon: <Ghost size={18} />,   movieId: 27 },
+  { id: 878,   label: 'Sci-Fi',        icon: <Rocket size={18} />,  movieId: 878 },
+  { id: 10749, label: 'Romance',       icon: <Heart size={18} />,   movieId: 10749 },
+  { id: 18,    label: 'Drama',         icon: <Drama size={18} />,   movieId: 18 },
+  { id: 53,    label: 'Thriller',      icon: <Film size={18} />,    movieId: 53 },
+  { id: 16,    label: 'Animation',     icon: <Sparkles size={18} />,movieId: 16 },
+  { id: 80,    label: 'Crime',         icon: <Shield size={18} />,  movieId: 80 },
+  { id: 14,    label: 'Fantasy',       icon: <Star size={18} />,    movieId: 14 },
+  { id: 10751, label: 'Family',        icon: <Tv size={18} />,      movieId: 10751 },
+  { id: 36,    label: 'History',       icon: <Film size={18} />,    movieId: 36 },
+];
+
+function BrowseByGenre({ onGenreSelect }: { onGenreSelect: (genreId: number, label: string) => void }) {
+  const [activeGenre, setActiveGenre] = useState<number | null>(null);
+
+  const handleSelect = (g: typeof GENRE_TILES[0]) => {
+    setActiveGenre(g.id);
+    onGenreSelect(g.id, g.label);
+  };
+
+  return (
+    <div style={{ paddingInline: '4vw', marginBottom: 44 }}>
+      {/* Section header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+        <div style={{ width: 3, height: 16, borderRadius: 2, background: 'rgba(255,255,255,0.35)' }} />
+        <h2 style={{
+          margin: 0,
+          fontSize: 11,
+          fontWeight: 700,
+          color: C.textSub,
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          fontFamily: '"Inter", system-ui, sans-serif',
+        }}>
+          Browse by Genre
+        </h2>
+      </div>
+
+      {/* Genre grid — 4 per row on mobile */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: 10,
+      }}>
+        {GENRE_TILES.map(g => {
+          const isActive = activeGenre === g.id;
+          return (
+            <button
+              key={g.id}
+              onClick={() => handleSelect(g)}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: '14px 8px',
+                borderRadius: 16,
+                cursor: 'pointer',
+                border: `1px solid ${isActive ? 'rgba(255,255,255,0.2)' : C.border}`,
+                background: isActive
+                  ? 'rgba(248,249,251,0.1)'
+                  : 'rgba(15,19,24,0.7)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                boxShadow: isActive
+                  ? '0 4px 0 rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.06) inset'
+                  : '0 3px 0 rgba(0,0,0,0.4), 0 6px 16px rgba(0,0,0,0.35)',
+                transform: isActive ? 'translateY(-2px) scale(1.03)' : 'translateY(0) scale(1)',
+                transition: 'all 0.18s cubic-bezier(0.2,0.8,0.2,1)',
+                color: isActive ? C.text : C.textSub,
+                fontFamily: 'inherit',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <span style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: isActive ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)',
+                color: isActive ? C.text : C.textSub,
+                transition: 'all 0.18s ease',
+              }}>
+                {g.icon}
+              </span>
+              <span style={{
+                fontSize: 10,
+                fontWeight: isActive ? 700 : 500,
+                color: isActive ? C.text : C.textSub,
+                letterSpacing: '0.02em',
+                textAlign: 'center',
+                lineHeight: 1.2,
+                transition: 'color 0.18s ease',
+                fontFamily: '"Inter", system-ui, sans-serif',
+              }}>
+                {g.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── HERO SLIDE ───────────────────────────────────────────────────────────────
 function HeroSlide({ item, onWatch }: { item: CineItem; onWatch: (item: CineItem) => void }) {
   const [imgOk, setImgOk] = useState(false);
@@ -1019,8 +1250,8 @@ function HeroSlide({ item, onWatch }: { item: CineItem; onWatch: (item: CineItem
       )}
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(7,9,13,1) 0%, rgba(7,9,13,0.65) 40%, rgba(7,9,13,0.05) 100%)' }} />
       <div style={{ position: 'absolute', bottom: '14%', left: '5%', right: '5%', maxWidth: 540, zIndex: 2 }}>
-        <h1 style={{ margin: '0 0 10px', fontSize: 'clamp(24px, 5vw, 48px)', fontWeight: 800, color: C.text, lineHeight: 1.1, letterSpacing: '-0.025em' }}>{item.title}</h1>
-        <p style={{ margin: '0 0 22px', fontSize: 13, color: C.textSub, lineHeight: 1.65, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.overview}</p>
+        <h1 style={{ margin: '0 0 10px', fontSize: 'clamp(24px, 5vw, 48px)', fontWeight: 800, color: C.text, lineHeight: 1.1, letterSpacing: '-0.03em', fontFamily: '"Outfit", "Inter", system-ui, sans-serif' }}>{item.title}</h1>
+        <p style={{ margin: '0 0 22px', fontSize: 13, color: C.textSub, lineHeight: 1.65, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontFamily: '"Inter", system-ui, sans-serif' }}>{item.overview}</p>
         <button
           onClick={() => onWatch(item)}
           style={{
@@ -1396,7 +1627,7 @@ function FloatingBottomDock({ onSearchOpen }: { onSearchOpen: () => void }) {
             WebkitTapHighlightColor: 'transparent',
           }}
         >
-          <span style={{ fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: '-0.05em', lineHeight: 1 }}>
+          <span style={{ fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: '-0.05em', lineHeight: 1, fontFamily: '"Outfit", "Inter", system-ui, sans-serif' }}>
             Cine<span style={{ color: C.textSub, fontWeight: 300 }}>verse</span>
           </span>
         </button>
@@ -1494,7 +1725,7 @@ function Nav({ onSearchOpen }: { onSearchOpen: () => void }) {
         style={{
           background: 'none', border: 'none', cursor: 'pointer',
           fontSize: 17, fontWeight: 900, color: C.text, letterSpacing: '-0.05em',
-          padding: 0, flex: 1, textAlign: 'left', fontFamily: 'inherit',
+          padding: 0, flex: 1, textAlign: 'left', fontFamily: '"Outfit", "Inter", system-ui, sans-serif',
           WebkitTapHighlightColor: 'transparent', lineHeight: 1,
         }}
       >
@@ -1529,6 +1760,9 @@ export default function CineverseHome() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectedOtt, setSelectedOtt] = useState('all');
   const [currentOttTab, setCurrentOttTab] = useState<'movie' | 'tv'>('movie');
+  const [selectedGenre, setSelectedGenre] = useState<{ id: number; label: string } | null>(null);
+  const [genreItems, setGenreItems] = useState<CineItem[]>([]);
+  const [loadingGenre, setLoadingGenre] = useState(false);
 
   // Base content
   const [heroItems,      setHeroItems]      = useState<CineItem[]>([]);
@@ -1687,6 +1921,36 @@ export default function CineverseHome() {
     }).finally(() => setLoadingProvider(false));
   }, [selectedOtt]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Genre fetch — real TMDB discover by genre id ────────────────────────────
+  const handleGenreSelect = useCallback(async (genreId: number, label: string) => {
+    setSelectedGenre(g => g?.id === genreId ? null : { id: genreId, label });
+    if (selectedGenre?.id === genreId) { setGenreItems([]); return; }
+    setLoadingGenre(true);
+    try {
+      const base = 'https://api.themoviedb.org/3';
+      const params = `with_genres=${genreId}&sort_by=popularity.desc&page=1`;
+      const token = (import.meta as any).env?.VITE_TMDB_TOKEN || (import.meta as any).env?.VITE_TMDB_READ_ACCESS_TOKEN || '';
+      const key   = (import.meta as any).env?.VITE_TMDB_API_KEY || (import.meta as any).env?.VITE_TMDB_KEY || '';
+      let data: any = null;
+      if (token) {
+        const r = await fetch(`${base}/discover/movie?${params}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (r.ok) data = await r.json();
+      } else if (key) {
+        const r = await fetch(`${base}/discover/movie?${params}&api_key=${key}`);
+        if (r.ok) data = await r.json();
+      }
+      if (data) setGenreItems(normPage(data, 'movie', 20));
+      else {
+        // Fallback: filter from existing moviePool
+        setGenreItems(moviePool.filter(i => i.genres.some(g => g.toLowerCase().includes(label.toLowerCase()))).slice(0, 20));
+      }
+    } catch {
+      setGenreItems(moviePool.filter(i => i.genres.some(g => g.toLowerCase().includes(label.toLowerCase()))).slice(0, 20));
+    } finally {
+      setLoadingGenre(false);
+    }
+  }, [selectedGenre, moviePool]);
+
   const goPlay = useCallback((itemOrEntry: CineItem | ContinueWatchingEntry) => {
     const isCwEntry = 'item' in itemOrEntry && 'episode' in itemOrEntry;
     if (isCwEntry) {
@@ -1717,7 +1981,7 @@ export default function CineverseHome() {
     : popularShows;
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: 'Inter, system-ui, sans-serif', overflowX: 'hidden' }}>
+    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: '"Inter", system-ui, sans-serif', overflowX: 'hidden' }}>
 
       {/* ── Floating Glass Navbar ── */}
       <Nav onSearchOpen={() => setSearchOpen(true)} />
@@ -1769,6 +2033,20 @@ export default function CineverseHome() {
           currentTab={currentOttTab}
           onTabChange={tab => setCurrentOttTab(tab)}
         />
+
+        {/* ── 8b. Browse by Genre ── */}
+        <BrowseByGenre onGenreSelect={handleGenreSelect} />
+
+        {/* ── 8c. Genre Results Rail (appears when a genre is selected) ── */}
+        {selectedGenre && (
+          <Rail
+            title={`${selectedGenre.label} Films`}
+            icon={<Sparkles size={14} />}
+            items={genreItems}
+            loading={loadingGenre}
+            onItemClick={goPlayItem}
+          />
+        )}
 
         {/* ── 9. Provider / Tab Content Rails ── */}
         {loadingProvider ? (
@@ -1855,7 +2133,7 @@ export default function CineverseHome() {
         borderTop: `1px solid ${C.border}`, padding: '32px 4vw 96px',
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, textAlign: 'center',
       }}>
-        <span style={{ fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: '-0.05em' }}>
+        <span style={{ fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: '-0.05em', fontFamily: '"Outfit", "Inter", system-ui, sans-serif' }}>
           Cine<span style={{ color: C.textSub, fontWeight: 300 }}>verse</span>
         </span>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -1887,6 +2165,7 @@ export default function CineverseHome() {
       {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} onSelect={goPlay} />}
 
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap');
         *::-webkit-scrollbar { display: none; }
         * { -ms-overflow-style: none; scrollbar-width: none; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         *:focus { outline: none; }
@@ -1904,8 +2183,13 @@ export default function CineverseHome() {
           from { transform: translateX(0); }
           to   { transform: translateX(-50%); }
         }
+        @keyframes cv-glow-pulse {
+          0%, 100% { opacity: 0.08; }
+          50%       { opacity: 0.18; }
+        }
         @media (prefers-reduced-motion: reduce) {
           [style*="ott-scroll"] { animation: none !important; }
+          [style*="cv-glow-pulse"] { animation: none !important; }
         }
       `}</style>
     </div>
