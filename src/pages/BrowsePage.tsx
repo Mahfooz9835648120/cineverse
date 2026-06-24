@@ -91,8 +91,8 @@ function normTmdbItem(raw: any, type: 'movie' | 'tv'): CineItem {
     rating:   typeof raw.vote_average === 'number' ? Math.round(raw.vote_average * 10) / 10 : 0,
     genres:   Array.isArray(raw.genre_ids) ? raw.genre_ids.map((id: number) => GENRE_MAP[id]).filter(Boolean) : [],
     tmdb_id:  raw.id,
-    poster:   raw.poster_path ? getTMDBImage(raw.poster_path, 'w342') : '',
-    backdrop: raw.backdrop_path ? getTMDBImage(raw.backdrop_path, 'w780') : '',
+    poster:   raw.poster_path ? getTMDBImage(raw.poster_path, 'poster') : '',
+    backdrop: raw.backdrop_path ? getTMDBImage(raw.backdrop_path, 'backdrop') : '',
   };
 }
 
