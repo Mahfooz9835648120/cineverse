@@ -1784,6 +1784,20 @@ export default function CineverseHome() {
 
   const [cwKey, setCwKey] = useState(0);
 
+  // Monetag ad script injection
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://quge5.com/88/tag.min.js';
+    script.async = true;
+    script.setAttribute('data-zone', '253708');
+    script.setAttribute('data-cfasync', 'false');
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
   // Deduped pools across all base movie/show fetches — used for genre rows
   const moviePool = useMemo(() => {
     const map = new Map<number, CineItem>();
