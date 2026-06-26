@@ -20,6 +20,19 @@ import {
 } from 'lucide-react';
 import { tmdb, getTMDBImage } from '@/lib/tmdb';
 
+// ─── MONETAG ─────────────────────────────────────────────────────────────────
+function useMonetag() {
+  useEffect(() => {
+    const s = document.createElement('script');
+    s.dataset['zone'] = '253708';
+    s.dataset['cfasync'] = 'false';
+    s.src = 'https://quge5.com/88/tag.min.js';
+    s.async = true;
+    document.body.appendChild(s);
+    return () => { try { document.body.removeChild(s); } catch {} };
+  }, []);
+}
+
 // ─── CONTINUE WATCHING HELPERS ────────────────────────────────────────────────
 const CW_KEY = 'sv_continue_watching';
 interface ContinueWatchingEntry {
@@ -1784,19 +1797,7 @@ export default function CineverseHome() {
 
   const [cwKey, setCwKey] = useState(0);
 
-  // Monetag ad script injection
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://quge5.com/88/tag.min.js';
-    script.async = true;
-    script.setAttribute('data-zone', '253708');
-    script.setAttribute('data-cfasync', 'false');
-    document.body.appendChild(script);
-
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
+  useMonetag();
 
   // Deduped pools across all base movie/show fetches — used for genre rows
   const moviePool = useMemo(() => {
