@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
-// Matched 1:1 to CineverseHome.tsx so the player feels like the same app.
 const C = {
   bg:        '#07090D',
   surface:   '#0F1318',
@@ -62,7 +61,7 @@ export interface ContinueWatchingEntry {
   item:      CineItem;
   season:    number;
   episode:   number;
-  updatedAt: number; // timestamp
+  updatedAt: number;
 }
 
 const CW_KEY = 'sv_continue_watching';
@@ -85,8 +84,6 @@ export function saveContinueWatching(entry: ContinueWatchingEntry) {
 }
 
 // ─── SERVER PREFERENCE CACHE ──────────────────────────────────────────────────
-// Per-show: sv_server_show_{tmdbId}  → providerId
-// Per-type fallback: sv_server_{movie|tv|anime} → providerId
 function getServerPref(tmdbId: number, contentType: string): string | null {
   return (
     localStorage.getItem(`sv_server_show_${tmdbId}`) ||
@@ -104,9 +101,6 @@ function saveServerPref(tmdbId: number, contentType: string, providerId: string)
 interface AudioVariant { key: string; label: string; }
 
 // ─── PROVIDERS (server-resolved) ─────────────────────────────────────────────
-// Provider domains/URL templates live ONLY in /api/providers.ts now — nothing
-// here in the client bundle. We just fetch a label list, then resolve the
-// actual embed URL on demand when a provider is selected.
 type ContentType = 'movie' | 'tv' | 'anime';
 
 interface ProviderMeta {
@@ -223,7 +217,77 @@ async function fetchTMDBEpisodes(tmdbId: number, season: number): Promise<TMDBEp
   } catch { return []; }
 }
 
-// ─── ANILIST ──────────────────────────────────────────────────────────────────
+// ─── TVDB ID FROM TMDB ────────────────────────────────────────────────────────
+// Fetches TMDB's external_ids for a TV show to get the TVDB series ID.
+async function fetchTVDBId(tmdbId: number): Promise<number | null> {
+  try {
+    const res = await fetch(`${TMDB_BASE}/tv/${tmdbId}/external_ids?api_key=${TMDB_KEY}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.tvdb_id ? Number(data.tvdb_id) : null;
+  } catch { return null; }
+}
+
+// ─── ANIME IDS MAP ────────────────────────────────────────────────────────────
+// Loaded once and cached. Maps TVDB series ID + season → AniList ID.
+// Source: /public/anime_ids.json (copy this file to your /public folder)
+interface AnimeIdEntry {
+  tvdb_id?:     number;
+  tvdb_season?: number;
+  tvdb_epoffset?: number;
+  imdb_id?:     string;
+  mal_id?:      number;
+  anilist_id?:  number;
+}
+
+let _animeIdsCache: Record<string, AnimeIdEntry> | null = null;
+
+async function loadAnimeIds(): Promise<Record<string, AnimeIdEntry>> {
+  if (_animeIdsCache) return _animeIdsCache;
+  try {
+    const res = await fetch('/anime_ids.json');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    _animeIdsCache = await res.json();
+    return _animeIdsCache!;
+  } catch (err) {
+    console.error('[anime_ids] failed to load:', err);
+    _animeIdsCache = {};
+    return {};
+  }
+}
+
+// Look up AniList ID using TVDB series ID and the current TMDB season number.
+// Strategy:
+//   1. Find all entries where tvdb_id matches.
+//   2. Among those, prefer the entry whose tvdb_season matches curSeason.
+//   3. Fall back to tvdb_season === 1 if no exact match (covers single-season shows).
+//   4. Fall back to any entry with tvdb_season > 0.
+async function lookupAniListFromTVDB(
+  tvdbId: number,
+  season: number,
+): Promise<number | null> {
+  const map = await loadAnimeIds();
+  const entries = Object.values(map).filter(
+    e => e.tvdb_id === tvdbId && typeof e.anilist_id === 'number',
+  );
+  if (!entries.length) return null;
+
+  // Exact season match
+  const exactMatch = entries.find(e => e.tvdb_season === season);
+  if (exactMatch?.anilist_id) return exactMatch.anilist_id;
+
+  // Season 1 fallback (most common case for anime)
+  const s1Match = entries.find(e => e.tvdb_season === 1);
+  if (s1Match?.anilist_id) return s1Match.anilist_id;
+
+  // Any positive season
+  const anyPos = entries.find(e => (e.tvdb_season ?? 0) > 0);
+  if (anyPos?.anilist_id) return anyPos.anilist_id;
+
+  return null;
+}
+
+// ─── ANILIST (title-search fallback) ─────────────────────────────────────────
 const ANILIST_GQL = 'https://graphql.anilist.co';
 
 async function fetchAniListId(title: string, year?: number): Promise<number | null> {
@@ -255,8 +319,35 @@ function detectIsAnime(d: TMDBDetails): boolean {
     !!(d.origin_country?.includes('JP') || d.original_language === 'ja');
 }
 
-// ─── (provider list + URL resolution now handled by fetchProviderList /
-//      fetchResolvedUrl, defined above, which call /api/providers) ──────────
+// ─── RESOLVE ANILIST ID — full pipeline ──────────────────────────────────────
+// 1. TMDB external_ids → TVDB ID
+// 2. anime_ids.json lookup by TVDB ID + season
+// 3. AniList title search (with year)
+// 4. AniList title search (without year)
+async function resolveAniListId(
+  tmdbId: number,
+  season: number,
+  title: string,
+  year: number,
+): Promise<number | null> {
+  // Step 1+2: TVDB map lookup (fast, accurate)
+  const tvdbId = await fetchTVDBId(tmdbId);
+  console.log(`[anilist] tvdb_id for tmdb ${tmdbId}:`, tvdbId);
+  if (tvdbId) {
+    const fromMap = await lookupAniListFromTVDB(tvdbId, season);
+    if (fromMap) {
+      console.log(`[anilist] resolved via TVDB map: ${fromMap}`);
+      return fromMap;
+    }
+  }
+
+  // Step 3+4: AniList title search fallback
+  console.log(`[anilist] falling back to title search for "${title}"`);
+  let alId = await fetchAniListId(title, year);
+  if (!alId) alId = await fetchAniListIdFallback(title);
+  if (alId) console.log(`[anilist] resolved via title search: ${alId}`);
+  return alId;
+}
 
 // ─── AUDIO DROPDOWN ───────────────────────────────────────────────────────────
 function AudioDropdown({ variants, active, onChange }: {
@@ -327,8 +418,6 @@ function AudioDropdown({ variants, active, onChange }: {
 }
 
 // ─── DOWNLOAD SERVERS ─────────────────────────────────────────────────────────
-// Builds a direct download-page URL per server, per content type.
-// tv links take {tmdbId}/{season}/{episode}; movie links take just {tmdbId}.
 interface DownloadServer {
   id:    string;
   label: string;
@@ -447,7 +536,6 @@ function EpisodePanel({
   const [seasonDropOpen, setSeasonDropOpen] = useState(false);
   const seasonDropRef = useRef<HTMLDivElement>(null);
 
-  // Close season dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (seasonDropRef.current && !seasonDropRef.current.contains(e.target as Node)) setSeasonDropOpen(false);
@@ -460,7 +548,6 @@ function EpisodePanel({
     activeRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [curEp]);
 
-  // Arrow-key navigation
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (['ArrowLeft','ArrowRight'].includes(e.key)) {
@@ -479,7 +566,6 @@ function EpisodePanel({
   return (
     <div style={{ marginTop: 12, borderRadius: 10, border: `1px solid ${C.border}`, background: C.surface, padding: 16 }}>
 
-      {/* Season custom dropdown */}
       {!isAnime && seasons.length > 1 && (
         <div ref={seasonDropRef} style={{ position: 'relative', marginBottom: 14, display: 'inline-block' }}>
           <button
@@ -538,15 +624,10 @@ function EpisodePanel({
         </div>
       )}
 
-      {/* Episode grid — row-wise wrap */}
       {loadingEps ? (
         <p style={{ color: C.textSub, fontSize: 13, margin: 0 }}>Loading episodes…</p>
       ) : episodes.length > 0 ? (
-        <div style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 6,
-        }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {episodes.map(ep => {
             const active = ep.episode_number === curEp;
             return (
@@ -584,7 +665,6 @@ function EpisodePanel({
         <p style={{ color: C.textSub, fontSize: 13, margin: 0 }}>No episodes found.</p>
       )}
 
-      {/* Current ep info */}
       {(() => {
         const ep = episodes.find(e => e.episode_number === curEp);
         if (!ep) return null;
@@ -691,12 +771,10 @@ export default function PlayerPage() {
   const tmdbIdNum = parseInt(tmdbId || '0', 10);
   const mediaType = type as 'movie' | 'show' | 'anime';
 
-  // Server pref: initialise after we know effectiveType
   const [providerIdx, setProviderIdx] = useState(0);
   const [activeLang,  setActiveLang]  = useState<string>('en');
   const provider = providers[providerIdx] || providers[0];
 
-  // Show/anime state
   const [seasons,     setSeasons]    = useState<TMDBSeason[]>([]);
   const [episodes,    setEpisodes]   = useState<TMDBEpisode[]>([]);
   const [curSeason,   setCurSeason]  = useState(resumeSeason);
@@ -708,7 +786,6 @@ export default function PlayerPage() {
   const iframeRef    = useRef<HTMLIFrameElement>(null);
   const iframeWrapRef = useRef<HTMLDivElement>(null);
 
-  // Fullscreen: expand the iframe wrapper to cover the whole viewport
   const handleIframeFullscreen = useCallback(() => {
     if (iframeFullscreen) {
       setIframeFullscreen(false);
@@ -718,18 +795,15 @@ export default function PlayerPage() {
       } catch {}
     } else {
       setIframeFullscreen(true);
-      // Try native fullscreen on the wrapper element first
       try {
         const el = iframeWrapRef.current as any;
         const req = el?.requestFullscreen || el?.webkitRequestFullscreen || el?.mozRequestFullScreen;
         if (req) req.call(el);
       } catch {}
-      // Force landscape orientation — must be called after a user gesture
       const lockOrientation = async () => {
         try {
           await (screen.orientation as any).lock?.('landscape');
         } catch {
-          // Fallback: try deprecated API
           try {
             const so = screen as any;
             (so.lockOrientation || so.mozLockOrientation || so.msLockOrientation)?.('landscape');
@@ -740,14 +814,12 @@ export default function PlayerPage() {
     }
   }, [iframeFullscreen]);
 
-  // Back gesture / popstate → exit fullscreen instead of navigating
   useEffect(() => {
     if (!iframeFullscreen) return;
     const handler = (e: PopStateEvent) => {
       e.preventDefault();
       setIframeFullscreen(false);
       try { (screen.orientation as any).unlock?.(); } catch {}
-      // Push a dummy state back so the page stays
       window.history.pushState(null, '', window.location.href);
     };
     window.history.pushState(null, '', window.location.href);
@@ -782,8 +854,7 @@ export default function PlayerPage() {
         });
         if (anime) {
           setLoadingAL(true);
-          let alId = await fetchAniListId(title, year);
-          if (!alId) alId = await fetchAniListIdFallback(title);
+          const alId = await resolveAniListId(tmdbIdNum, resumeSeason, title, year);
           setAnilistId(alId);
           setLoadingAL(false);
         }
@@ -796,15 +867,31 @@ export default function PlayerPage() {
     if (!stateItem?.isAnime || anilistId) return;
     (async () => {
       setLoadingAL(true);
-      let alId = await fetchAniListId(stateItem.title, stateItem.year);
-      if (!alId) alId = await fetchAniListIdFallback(stateItem.title);
+      const alId = await resolveAniListId(
+        stateItem.tmdb_id,
+        resumeSeason,
+        stateItem.title,
+        stateItem.year,
+      );
       setAnilistId(alId);
       setIsAnime(true);
       setLoadingAL(false);
     })();
   }, [stateItem]);
 
-  // ── Load provider list + restore server preference once effectiveType is known ──
+  // ── Re-resolve AniList when season changes (for multi-season anime) ──────────
+  // e.g. Sword Art Online S1 vs S2 have different AniList IDs
+  useEffect(() => {
+    if (!isAnime || !item || loadingMeta) return;
+    (async () => {
+      setLoadingAL(true);
+      const alId = await resolveAniListId(tmdbIdNum, curSeason, item.title, item.year);
+      setAnilistId(alId);
+      setLoadingAL(false);
+    })();
+  }, [curSeason, isAnime]);
+
+  // ── Load provider list + restore server preference ───────────────────────────
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -836,13 +923,13 @@ export default function PlayerPage() {
       .then(eps => { setEpisodes(eps); setLoadingEps(false); });
   }, [tmdbIdNum, mediaType, curSeason]);
 
-  // ── Save continue watching whenever ep/season changes ───────────────────────
+  // ── Save continue watching ───────────────────────────────────────────────────
   useEffect(() => {
     if (!item || loadingMeta) return;
     saveContinueWatching({ item, season: curSeason, episode: curEp, updatedAt: Date.now() });
   }, [item, curSeason, curEp, loadingMeta]);
 
-  // ── Resolve embed URL from /api/providers whenever selection changes ────────
+  // ── Resolve embed URL ────────────────────────────────────────────────────────
   const [resolvedUrl, setResolvedUrl] = useState('');
   const [resolvingUrl, setResolvingUrl] = useState(false);
   const [resolveFailed, setResolveFailed] = useState(false);
@@ -891,7 +978,6 @@ export default function PlayerPage() {
 
   const [overviewExpanded, setOverviewExpanded] = useState(false);
 
-  // Scroll-aware floating navbar — mirrors the Home page's Nav behaviour
   const [scrollY, setScrollY] = useState(0);
   useEffect(() => {
     const fn = () => setScrollY(window.scrollY);
@@ -904,7 +990,7 @@ export default function PlayerPage() {
   return (
     <div style={{ minHeight: '100vh', background: C.bg, fontFamily: 'Inter, system-ui, sans-serif', color: C.text, animation: 'sv-fadein 0.3s ease' }}>
 
-      {/* ── Floating Glass Navbar — matches Home page Nav exactly ── */}
+      {/* ── Floating Glass Navbar ── */}
       <nav style={{
         position: 'fixed',
         top: atTop ? 14 : 10,
@@ -924,7 +1010,6 @@ export default function PlayerPage() {
         transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
         display: 'flex', alignItems: 'center', gap: 10,
       }}>
-        {/* Back button */}
         <button
           onClick={() => navigate('/')}
           aria-label="Back"
@@ -940,7 +1025,6 @@ export default function PlayerPage() {
           }}
         ><ArrowLeft size={15} /></button>
 
-        {/* Title / episode info — fills remaining space */}
         <div style={{ flex: 1, minWidth: 0 }}>
           {item && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap', overflow: 'hidden' }}>
@@ -964,18 +1048,16 @@ export default function PlayerPage() {
           )}
         </div>
 
-        {/* Logo */}
         <span style={{ fontSize: 15, fontWeight: 900, letterSpacing: '-0.05em', flexShrink: 0, color: C.text }}>
           Cine<span style={{ color: C.textSub, fontWeight: 300 }}>verse</span>
         </span>
       </nav>
 
-      {/* Spacer so content starts below the floating navbar */}
       <div style={{ height: 'calc(58px + 28px)' }} />
 
       <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 4vw 80px', animation: 'sv-slideup 0.35s ease' }}>
 
-        {/* ── PLAYER FRAME (with fullscreen overlay mode) ── */}
+        {/* ── PLAYER FRAME ── */}
         <div
           ref={iframeWrapRef}
           style={iframeFullscreen ? {
@@ -993,7 +1075,9 @@ export default function PlayerPage() {
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.surface }}>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ width: 40, height: 40, border: `2px solid ${C.border}`, borderTopColor: C.text, borderRadius: '50%', animation: 'sv-spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-                <p style={{ color: C.textSub, fontSize: 13, margin: 0 }}>Loading…</p>
+                <p style={{ color: C.textSub, fontSize: 13, margin: 0 }}>
+                  {loadingAL ? 'Resolving AniList ID…' : 'Loading…'}
+                </p>
               </div>
             </div>
           ) : resolveFailed || !resolvedUrl ? (
@@ -1025,7 +1109,6 @@ export default function PlayerPage() {
               style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
             />
           )}
-          {/* Exit fullscreen button (only visible in fullscreen mode) */}
           {iframeFullscreen && (
             <button
               onClick={handleIframeFullscreen}
@@ -1040,13 +1123,12 @@ export default function PlayerPage() {
           )}
         </div>
 
-        {/* ── BELOW-PLAYER BAR: ep info + fullscreen btn ── */}
+        {/* ── BELOW-PLAYER BAR ── */}
         {!iframeFullscreen && (
           <div style={{
             marginTop: 10, display: 'flex', alignItems: 'center',
             justifyContent: 'space-between', gap: 10,
           }}>
-            {/* Left: show name + ep counter (series only) */}
             <div style={{ minWidth: 0, flex: 1 }}>
               {mediaType !== 'movie' && item && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -1061,7 +1143,6 @@ export default function PlayerPage() {
                 </div>
               )}
             </div>
-            {/* Right: download + fullscreen buttons */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
               <DownloadDropdown
                 contentType={mediaType === 'movie' ? 'movie' : 'tv'}
@@ -1091,16 +1172,15 @@ export default function PlayerPage() {
         {!iframeFullscreen && (
         <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-          {/* Server row + audio dropdown inline */}
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
             {providers.map((p, idx) => {
               const active  = idx === providerIdx;
-              const needsAL = p.searchType === 'anilist' && isAnime && !anilistId;
+              const needsAL = p.searchType === 'anilist' && isAnime && !anilistId && !loadingAL;
               return (
                 <button
                   key={p.id}
                   onClick={() => selectProvider(idx)}
-                  title={needsAL ? 'Resolving AniList ID…' : p.label}
+                  title={loadingAL && p.searchType === 'anilist' ? 'Resolving AniList ID…' : p.label}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 4,
                     padding: '6px 14px', borderRadius: 99, fontSize: 12, fontWeight: 600,
@@ -1118,7 +1198,6 @@ export default function PlayerPage() {
               );
             })}
 
-            {/* Audio dropdown — only when active provider has variants */}
             {provider?.audioVariants && provider.audioVariants.length > 0 && (
               <AudioDropdown
                 variants={provider.audioVariants}
@@ -1128,7 +1207,6 @@ export default function PlayerPage() {
             )}
           </div>
 
-          {/* Action buttons */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button
               onClick={() => setIframeKey(k => k + 1)}
@@ -1173,7 +1251,7 @@ export default function PlayerPage() {
         </div>
         )}
 
-        {/* ── EPISODE PANEL (inline below controls) ── */}
+        {/* ── EPISODE PANEL ── */}
         {!iframeFullscreen && mediaType !== 'movie' && epPanelOpen && (
           <EpisodePanel
             seasons={seasons} episodes={episodes}
@@ -1255,7 +1333,6 @@ export default function PlayerPage() {
             </div>
           </div>
 
-          {/* ── RELATED CONTENT ── */}
           <RelatedRail tmdbId={tmdbIdNum} mediaType={mediaType} navigate={navigate} />
           </>
         )}
